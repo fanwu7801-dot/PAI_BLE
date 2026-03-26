@@ -1,0 +1,22 @@
+# build output
+objs/
+debug_log/
+
+# IDE and local workspace
+.vscode/
+.obsidian/
+.trae/
+*.cbp
+
+# temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+# system files
+Thumbs.db
+Desktop.ini
