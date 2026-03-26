@@ -1,0 +1,136 @@
+<mxfile host="65bd71144e">
+    <diagram id="customer-ota-flow" name="蓝牙OTA升级客户流程">
+        <mxGraphModel dx="1024" dy="1113" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="蓝牙 OTA 升级流程" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=24;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="550" y="80" width="560" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="lane1" value="服务器平台" style="swimlane;html=1;whiteSpace=wrap;rounded=0;horizontal=0;startSize=32;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="180" width="360" height="1080" as="geometry"/>
+                </mxCell>
+                <mxCell id="lane2" value="派电手机 App" style="swimlane;html=1;whiteSpace=wrap;rounded=0;horizontal=0;startSize=32;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="180" width="420" height="1080" as="geometry"/>
+                </mxCell>
+                <mxCell id="lane3" value="用户" style="swimlane;html=1;whiteSpace=wrap;rounded=0;horizontal=0;startSize=32;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="180" width="260" height="1080" as="geometry"/>
+                </mxCell>
+                <mxCell id="lane4" value="蓝牙设备 / SOC" style="swimlane;html=1;whiteSpace=wrap;rounded=0;horizontal=0;startSize=32;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1140" y="180" width="560" height="1080" as="geometry"/>
+                </mxCell>
+                <mxCell id="start" value="开始" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=16;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="200" width="80" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="p1" value="1. 工程师在服务器平台发布蓝牙固件&#xa;填写文件名、版本号、升级包信息" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="280" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="p2" value="2. 平台保存新固件版本&#xa;并向 App 提供版本同步能力" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="420" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="a1" value="3. App 与平台同步固件信息&#xa;获取最新蓝牙固件版本" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="300" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="a2" value="4. App 判断当前设备版本&#xa;提示用户有可升级固件" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="430" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="u1" value="5. 用户点击 OTA 升级" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="900" y="450" width="180" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="a3" value="6. App 进入升级流程&#xa;连接设备蓝牙升级服务" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="560" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="d1" value="7. 设备进入升级接收状态&#xa;准备接收固件数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="1290" y="560" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="a4" value="8. App 按分片主动下发固件包" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="700" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="d2" value="9. 设备接收固件分片数据&#xa;持续写入升级存储区域" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="1290" y="700" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="a5" value="10. App 展示升级进度&#xa;并等待设备结果反馈" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="840" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="d3" value="11. 设备完成固件接收后进行校验&#xa;检查数据完整性和固件合法性" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="1260" y="850" width="320" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="check" value="12. 校验是否通过？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="1300" y="990" width="240" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="succ1" value="13A. 设备进入 update 模式&#xa;切换到新的 A/B 分区启动" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="1450" y="1160" width="210" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="succ2" value="14A. App 提示升级成功&#xa;设备完成版本切换" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="1160" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="fail1" value="13B. 设备不进入 update 模式&#xa;保持或切回初始 A/B 分区&#xa;升级失败" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="1160" width="220" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="fail2" value="14B. App 提示升级失败&#xa;可引导用户重新升级" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="1165" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="end_ok" value="结束：升级成功" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=16;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="1310" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="end_fail" value="结束：升级失败" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=16;" parent="1" vertex="1">
+                    <mxGeometry x="1240" y="1310" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="start" target="p1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="p1" target="p2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="p2" target="a1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="a1" target="a2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="a2" target="u1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="u1" target="a3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="a3" target="d1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="d1" target="a4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="a4" target="d2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="d2" target="a5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="a5" target="d3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="d3" target="check" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" value="通过" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="check" target="succ1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" value="失败" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="check" target="fail1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="succ1" target="succ2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="fail1" target="fail2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="succ2" target="end_ok" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;" parent="1" source="fail2" target="end_fail" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

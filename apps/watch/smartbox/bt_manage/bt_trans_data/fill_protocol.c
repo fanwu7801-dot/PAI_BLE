@@ -2562,7 +2562,6 @@ static void ble_reply_to_app_f7f1_post(uint16_t protocol_id, const uint8_t *payl
     if (r == OS_Q_FULL || r == 0x15) {
       /* app_core 队列在高峰期可能塞满，但钥匙列表等 f7f1 回包仍需要尽量保证送达。
        * 这里退回到当前上下文直接执行封包和 notify，由 btstack 继续调度发送。 */
-       */
       ble_reply_to_app_f7f1_do(g_ble_reply_req.protocol_id, g_ble_reply_req.payload,
                               g_ble_reply_req.payload_len);
       g_ble_reply_req_pending = 0;

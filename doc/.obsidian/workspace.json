@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "OTA_使用说明_22Ax_RCSP桥接.md",
-                "mode": "preview",
+                "file": "蓝牙OTA升级流程.md",
+                "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "OTA_使用说明_22Ax_RCSP桥接"
+              "title": "蓝牙OTA升级流程"
             }
           }
         ]
@@ -185,6 +185,13 @@
   },
   "active": "4cf1d2dcac62cd2c",
   "lastOpenFiles": [
+    "蓝牙OTA升级流程.pdf",
+    "OTA.svg",
+    "OTA.drawio",
+    "串口OTA流程说明.pdf",
+    "蓝牙OTA升级流程.md",
+    "MCU串口OTA协议格式.md",
+    "OTA_使用说明_22Ax_RCSP桥接.md",
     "OTA.md",
     "OTA.pdf",
     "OTA_tmp.html"
