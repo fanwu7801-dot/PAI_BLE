@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "console": "externalTerminal",
+      "cwd": "c:/Users/14569/Desktop/派电出行/JL701n_watch_release_v3.0.2_multi_ble_关闭UI/sdk_OTA_END/apps/watch/smartbox/bt_manage/bt_trans_data",
+      "program": "c:/Users/14569/Desktop/派电出行/JL701n_watch_release_v3.0.2_multi_ble_关闭UI/sdk_OTA_END/apps/watch/smartbox/bt_manage/bt_trans_data/build/Debug/outDebug"
+    }
+  ]
+}

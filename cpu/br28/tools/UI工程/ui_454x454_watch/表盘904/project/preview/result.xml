@@ -1,0 +1,12 @@
+﻿<?xml version="2.0" encoding="UTF-8"?>
+<Resbuilder>
+    <PageList>
+        <Page id="0">
+            <ColorList/>
+            <PictureList>
+                <Picture format="ARGB8565" id="1">E:\br28\tools\br28_download_watch\UI工程\ui_454x454_watch\表盘904\project\config\表盘\preview.png</Picture>
+            </PictureList>
+            <CellList/>
+        </Page>
+    </PageList>
+</Resbuilder>
