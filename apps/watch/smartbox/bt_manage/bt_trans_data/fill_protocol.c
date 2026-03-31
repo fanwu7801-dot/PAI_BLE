@@ -56,11 +56,11 @@
 extern uint8_t *uart_data;
 extern uint16_t data_length;
 extern uint16_t uart_protocol_id;
-// 默认 AES 测试密钥：17ED2DD31F1EF55251BCB4862D1CE966
+// 默认 AES CA6E67ED5CF4668BB7057361E6C65A4E
 static const u8 *fill_protocol_get_aes_key(u8 out_key[16]);
 static const u8 test_aes_key[16] = {
-  0x17, 0xED, 0x2D, 0xD3, 0x1F, 0x1E, 0xF5, 0x52,
-  0x51, 0xBC, 0xB4, 0x86, 0x2D, 0x1C, 0xE9, 0x66
+  0xCA, 0x6E, 0x67, 0xED, 0x5C, 0xF4, 0x66, 0x8B,
+  0xB7, 0x05, 0x73, 0x61, 0xE6, 0xC6, 0x5A, 0x4A
 };
     
 uint8_t test_aes_key1[16] = {
@@ -68,18 +68,16 @@ uint8_t test_aes_key1[16] = {
 static const u8 *fill_protocol_get_aes_key(u8 out_key[16])
 {
   int r = syscfg_read(CFG_DEVICE_AES_KEY, out_key, 16);
-  int use_test = 1;
   if (r == 16) {
     for (u8 i = 0; i < 16; i++) {
       if (out_key[i] != 0) {
-        use_test = 0;
         return out_key;
       }
     }
   }
 #if FILL_PROTOCOL_AES_DBG
-  printf("[AES] use_test_key=%d syscfg_read=%d key:", use_test, r);
-  put_buf(use_test ? test_aes_key : out_key, 16);
+  printf("[AES] use default key, syscfg_read=%d key:", r);
+  put_buf(test_aes_key, 16);
 #endif
   return test_aes_key;
 }

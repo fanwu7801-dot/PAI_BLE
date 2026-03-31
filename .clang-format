@@ -1,0 +1,70 @@
+---
+# https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+# 基础代码风格
+BasedOnStyle: LLVM
+
+#---
+# C代码风格
+#Language: C  # clang-format version 20.1.1对语法要求较严格Cpp无法兼容C, 如果指明语言为C又会导致.h头文件不使用以下规则
+
+# 缩进规则
+IndentWidth: 4                        # 4空格缩进
+IndentCaseLabels: true                # Switch case缩进
+
+# Tab
+UseTab: Never                         # 禁止使用Tab
+TabWidth: 4                           # Tab等价4空格
+
+# 换行规则
+ColumnLimit: 80                       # 每行最多80字符
+BinPackParameters: OnePerLine         # ​函数声明/定义换行格式，每个参数一行
+BinPackArguments: false               # 函数调用时参数换行格式，每个参数一行
+BreakBeforeBinaryOperators: None      # 二元运算换行规则NonAssignment\All
+BreakBeforeBraces: Allman             # 大括号换行规则Linux\Allman
+
+# 对齐规则
+AlignAfterOpenBracket: Align          # 开括号对齐（Align / DontAlign）
+AlignConsecutiveDeclarations:         # 连续变量声明对齐
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignFunctionDeclarations: true
+  AlignFunctionPointers: true
+AlignConsecutiveAssignments:           # 赋值对齐
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCompound: true
+  PadOperators: true
+AlignConsecutiveMacros:                # 连续宏定义对齐
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignTrailingComments:                 # 尾部注释对齐
+  Kind: Always
+  OverEmptyLines: 2
+PointerAlignment: Right                # 星号右对齐 (void *ptr)
+
+# 空格规则
+SpaceBeforeParens: Never              # 函数名后不加空格
+SpaceBeforeAssignmentOperators: true  # 在二元运算符前后添加空格（例如 a + b）
+SpaceAfterCStyleCast: true            # 在逗号后添加空格
+SpaceBeforeCpp11BracedList: true      # 在结构体/类初始化列表的冒号后加空格
+
+# 空白行规则
+MaxEmptyLinesToKeep: 1                # 保留空行的最大数量
+RemoveEmptyLinesInUnwrappedLines: true
+
+# 注释规则
+ReflowComments: IndentOnly            # 
+
+# 头文件排序规则
+IncludeCategories:
+  # 本地头文件（双引号包含）最高优先级
+  - Regex: '^".*"'                    # 匹配所有""包含的头文件
+    Priority: 1
+  # 系统头文件（尖括号包含）次优先级
+  - Regex: '^<.*>'                    # 匹配所有<>包含的头文件
+    Priority: 2
+IncludeBlocks: Regroup                # 按分类自动分组头文件
+SortIncludes: true                    # 启用头文件排序

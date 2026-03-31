@@ -7746,6 +7746,7 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,strlen,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,bt_ble_init_do,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,rssi_check_init,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,uart1_send_toMCU,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,ble_vendor_set_default_att_mtu,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,bt_ble_rcsp_adv_enable,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,le_smartbox_bt_ble_exit,pl
@@ -7763,7 +7764,6 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,multi_att_set_ccc_config,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,rcsp_update_ancs_disconn_handler,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,fill_SOC_Phone_protocl,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,uart1_send_toMCU,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,vehicle_control_timer_start,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,putchar,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,fill_protocol_ble_on_can_send_now,l

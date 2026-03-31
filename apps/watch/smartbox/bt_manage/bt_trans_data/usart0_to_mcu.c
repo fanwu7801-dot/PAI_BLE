@@ -180,7 +180,9 @@ static int sn_payload_to_hex8(const uint8_t *in, uint16_t in_len, uint8_t out[8]
 #endif
 
 #ifndef APP_MSG_USER_CUSTOM_TONEPLAY
-#define APP_MSG_USER_CUSTOM_TONEPLAY 6
+#define APP_MSG_USER_CUSTOM_TONEPLAY 6WWWW
+
+#define UPDATA_SN_AES_KEY    0
 
 // UART->APP 音效播放消息重试（避免消息队列满时丢失）
 #define TONEPLAY_RETRY_MAX         5
@@ -370,11 +372,11 @@ static void uart1_request_mcu_update_once(void)
   }
   done = true;
 
-  // 主动向MCU发起更新请求：0x0037/0x0038（按协议约定为“请求帧”，payload为空）
+  // 主动向MCU发起更新请求：0x00F6/0x00F7（按协议约定为“请求帧”，payload为空）
   // 放在UART线程初始化成功后，避免上电早期MCU尚未就绪导致丢包。
-  uart1_send_toMCU(0x0037, NULL, 0);
+  uart1_send_toMCU(0x00F6, NULL, 0);
   os_time_dly(2);
-  uart1_send_toMCU(0x0038, NULL, 0);
+  uart1_send_toMCU(0x00F7, NULL, 0);
 }
 uint8_t uart_sn_buffer[8] = {0x90, 0x01, 0x02, 0x03,
                              0x18, 0x00, 0x00, 0x05}; // 用于存储sn码
@@ -919,7 +921,8 @@ static void uart1_sync_demo(void *p) {
             }
 
             // 统一走 APP_MSG_USER_TONPLAY；自定义音效优先逻辑已合并到 bt.c 的 case 5
-            int ret = app_send_message(APP_MSG_USER_TONPLAY, tone_id);
+            int ret  = 0 ; 
+           // ret = app_send_message(APP_MSG_USER_TONPLAY, tone_id);
             if (ret == 0) {
               g_toneplay_pending = false;
               g_toneplay_retry_count = 0;
@@ -932,6 +935,7 @@ static void uart1_sync_demo(void *p) {
           }
 
         }
+#ifdef UPDATA_SN_AES_KEY
         if (uart_protocol_id == 0x00F6) {
           {
             // MCU->SOC：更新SN (0x00F6)
@@ -940,12 +944,12 @@ static void uart1_sync_demo(void *p) {
             // 2) 直接8字节HEX：原样写入CFG_DEVICE_SN
             uint8_t sn_hex8[8] = {0};
             if (sn_payload_to_hex8(uart_data, data_length, sn_hex8) != 0) {
-              printf("SN update invalid payload len=%d\n", data_length);
+              printf("SN 数据更新的长度=%d\n", data_length);
             } else {
               memcpy(uart_sn_buffer, sn_hex8, 8);
               int w = syscfg_write(CFG_DEVICE_SN, uart_sn_buffer, 8);
               g_uart_sn_valid = 1;
-              printf("SN updated(saved HEX8):\n");
+              printf("SN updated(保存转化为HEX8):\n");
               put_buf(uart_sn_buffer, 8);
 
               // 读回验证，帮助定位“写了但广播没变”的问题
@@ -985,6 +989,8 @@ static void uart1_sync_demo(void *p) {
             uart_update_ble_adv_restart();
           }
         }
+#endif
+
         if (uart_protocol_id == 0x0033)
         { // 当前需要直接获取车辆设置信息指令 在le_trans_data 当中死等不到回应
           // extern void  get_vehice_set_infromation_instruct(uint16_t protocol_id);
