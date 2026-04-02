@@ -1548,6 +1548,8 @@ static void cbk_packet_handler(void *ble_hdl, uint8_t packet_type, uint16_t chan
                 // 0 代表下电
                 uint8_t conn_status[1] = {0};
                 uart1_send_toMCU(0x00F5, conn_status, 0);
+                // 车辆控制的timer也停止
+                vehicle_control_timer_stop();
                 {
                     u8 cid = get_cid_by_con_handle(disc_handle);
                     if (cid != 0xff)
@@ -2575,7 +2577,7 @@ static int att_write_callback(void *ble_hdl, hci_con_handle_t connection_handle,
             break;
         }
         uart1_send_toMCU(protocol_id, NULL, 0);
-        vehicle_control_timer_start(2000); // 开启定时器，但是需要再上车阶段修改，并且发送数�?
+        vehicle_control_timer_start(1500); // 开启定时器，但是需要再上车阶段修改，并且发送数�?
         /*策略
             上电的时�?0min 发送一次数�?
             车辆上电之后5s发送一次数�?

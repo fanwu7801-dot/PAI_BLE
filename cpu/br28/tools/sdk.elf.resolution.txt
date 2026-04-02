@@ -7779,10 +7779,10 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,rssi_on_connect,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,set_adv_notify_state,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,rssi_timer_start_by_cid,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,vehicle_control_timer_stop,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,rssi_on_disconnect,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,rssi_timer_stop,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,multi_att_clear_ccc_config,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,vehicle_control_timer_stop,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,fill_protocol_ble_tx_reset,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,get_jl_update_flag,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,att_server_set_check_remote,l

@@ -182,7 +182,7 @@ static int sn_payload_to_hex8(const uint8_t *in, uint16_t in_len, uint8_t out[8]
 #ifndef APP_MSG_USER_CUSTOM_TONEPLAY
 #define APP_MSG_USER_CUSTOM_TONEPLAY 6WWWW
 
-#define UPDATA_SN_AES_KEY    0
+#define UPDATA_SN_AES_KEY    1
 
 // UART->APP 音效播放消息重试（避免消息队列满时丢失）
 #define TONEPLAY_RETRY_MAX         5
@@ -935,7 +935,7 @@ static void uart1_sync_demo(void *p) {
           }
 
         }
-#ifdef UPDATA_SN_AES_KEY
+#if UPDATA_SN_AES_KEY
         if (uart_protocol_id == 0x00F6) {
           {
             // MCU->SOC：更新SN (0x00F6)

@@ -4324,7 +4324,7 @@ END GROUP
  .startup.text  0x06000120       0x8e cpu/br28/liba/cpu.a(startup.S.o)
                 0x06000120                _start
  *(.text)
- .text          0x060001ae    0x23468 cpu/br28/tools/sdk.elf.o
+ .text          0x060001ae    0x2346c cpu/br28/tools/sdk.elf.o
                 0x060002f2                rssi_check_init
                 0x06000568                uart1_send_toMCU
                 0x06001c5e                update_result_get
@@ -4349,79 +4349,79 @@ END GROUP
                 0x06012cf4                rssi_on_disconnect
                 0x06012d16                rssi_timer_stop
                 0x06012d1e                fill_protocol_ble_tx_reset
-                0x06013312                smbox_pairing_init
-                0x06013322                smbox_pairing_on_pair_process
-                0x06015f9e                per_key_scan_init
-                0x06016060                per_key_scan_enable
-                0x06016118                per_key_scan_mac
-                0x060161a0                user_custom_tone_play_if_exist
- .text          0x06023616       0x96 C:/JL/pi32/pi32v2-lib/r3-large/libm.a(lib_a-s_modf.o)
-                0x06023616                modf
- .text          0x060236ac       0x5e C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-memchr.o)
-                0x060236ac                memchr
- .text          0x0602370a       0x4e C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-rand.o)
-                0x0602370a                srand
-                0x0602371a                rand
- .text          0x06023758       0x2c C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strcat.o)
-                0x06023758                strcat
- .text          0x06023784       0x62 C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strncpy.o)
-                0x06023784                strncpy
- .text          0x060237e6       0x18 C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strnlen.o)
-                0x060237e6                strnlen
- .text          0x060237fe       0x28 C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strrchr.o)
-                0x060237fe                strrchr
- .text          0x06023826      0x10c C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strtol.o)
-                0x06023826                _strtol_r
-                0x06023918                strtol
- .text          0x06023932       0x1e C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-tolower.o)
-                0x06023932                tolower
- .text          0x06023950      0x1b8 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(comparedf2.o)
-                0x06023950                __cmpdf2
-                0x06023950                __ledf2
-                0x06023a00                __gedf2
-                0x06023aa8                __unorddf2
-                0x06023ae8                __eqdf2
-                0x06023af0                __ltdf2
-                0x06023af8                __nedf2
-                0x06023b00                __gtdf2
- .text          0x06023b08      0x346 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(divdf3.o)
-                0x06023b3e                __divdf3
- .text          0x06023e4e       0x3c C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(fixunsdfsi.o)
-                0x06023e4e                __fixunsdfsi
- .text          0x06023e8a       0x4c C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(floatsidf.o)
-                0x06023e8a                __floatsidf
- .text          0x06023ed6       0x34 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(floatunsidf.o)
-                0x06023ed6                __floatunsidf
- .text          0x06023f0a      0x2fa C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(muldf3.o)
-                0x06023f40                __muldf3
- .text          0x06024204        0xc C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(subdf3.o)
-                0x06024204                __subdf3
- .text          0x06024210       0x7a C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(extendsfdf2.o)
-                0x06024210                __extendsfdf2
- .text          0x0602428a       0x12 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(udivdi3.o)
-                0x0602428a                __udivdi3
- .text          0x0602429c       0x16 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(umoddi3.o)
-                0x0602429c                __umoddi3
-                0x060242b4                . = ALIGN (0x4)
- *fill*         0x060242b2        0x2 
-                0x060242b4                update_target_begin = .
+                0x06013316                smbox_pairing_init
+                0x06013326                smbox_pairing_on_pair_process
+                0x06015fa2                per_key_scan_init
+                0x06016064                per_key_scan_enable
+                0x0601611c                per_key_scan_mac
+                0x060161a4                user_custom_tone_play_if_exist
+ .text          0x0602361a       0x96 C:/JL/pi32/pi32v2-lib/r3-large/libm.a(lib_a-s_modf.o)
+                0x0602361a                modf
+ .text          0x060236b0       0x5e C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-memchr.o)
+                0x060236b0                memchr
+ .text          0x0602370e       0x4e C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-rand.o)
+                0x0602370e                srand
+                0x0602371e                rand
+ .text          0x0602375c       0x2c C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strcat.o)
+                0x0602375c                strcat
+ .text          0x06023788       0x62 C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strncpy.o)
+                0x06023788                strncpy
+ .text          0x060237ea       0x18 C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strnlen.o)
+                0x060237ea                strnlen
+ .text          0x06023802       0x28 C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strrchr.o)
+                0x06023802                strrchr
+ .text          0x0602382a      0x10c C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-strtol.o)
+                0x0602382a                _strtol_r
+                0x0602391c                strtol
+ .text          0x06023936       0x1e C:/JL/pi32/pi32v2-lib/r3-large/libc.a(lib_a-tolower.o)
+                0x06023936                tolower
+ .text          0x06023954      0x1b8 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(comparedf2.o)
+                0x06023954                __cmpdf2
+                0x06023954                __ledf2
+                0x06023a04                __gedf2
+                0x06023aac                __unorddf2
+                0x06023aec                __eqdf2
+                0x06023af4                __ltdf2
+                0x06023afc                __nedf2
+                0x06023b04                __gtdf2
+ .text          0x06023b0c      0x346 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(divdf3.o)
+                0x06023b42                __divdf3
+ .text          0x06023e52       0x3c C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(fixunsdfsi.o)
+                0x06023e52                __fixunsdfsi
+ .text          0x06023e8e       0x4c C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(floatsidf.o)
+                0x06023e8e                __floatsidf
+ .text          0x06023eda       0x34 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(floatunsidf.o)
+                0x06023eda                __floatunsidf
+ .text          0x06023f0e      0x2fa C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(muldf3.o)
+                0x06023f44                __muldf3
+ .text          0x06024208        0xc C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(subdf3.o)
+                0x06024208                __subdf3
+ .text          0x06024214       0x7a C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(extendsfdf2.o)
+                0x06024214                __extendsfdf2
+ .text          0x0602428e       0x12 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(udivdi3.o)
+                0x0602428e                __udivdi3
+ .text          0x060242a0       0x16 C:/JL/pi32/pi32v2-lib/r3-large/libcompiler-rt.a(umoddi3.o)
+                0x060242a0                __umoddi3
+                0x060242b8                . = ALIGN (0x4)
+ *fill*         0x060242b6        0x2 
+                0x060242b8                update_target_begin = .
                 [!provide]                PROVIDE (update_target_begin, .)
  *(.update_target)
  .update_target
-                0x060242b4       0x20 cpu/br28/tools/sdk.elf.o
-                0x060242b4                audio_update_target
-                0x060242bc                vad_update_target
-                0x060242c4                power_update_target
-                0x060242cc                ble_update_target
-                0x060242d4                update_target_end = .
+                0x060242b8       0x20 cpu/br28/tools/sdk.elf.o
+                0x060242b8                audio_update_target
+                0x060242c0                vad_update_target
+                0x060242c8                power_update_target
+                0x060242d0                ble_update_target
+                0x060242d8                update_target_end = .
                 [!provide]                PROVIDE (update_target_end, .)
-                0x060242d4                . = ALIGN (0x4)
+                0x060242d8                . = ALIGN (0x4)
  *(.LOG_TAG_CONST*)
  *(.rodata*)
  .rodata.str1.1
-                0x060242d4     0x2cf7 cpu/br28/tools/sdk.elf.o
+                0x060242d8     0x2cf7 cpu/br28/tools/sdk.elf.o
                                0x2d4e (size before relaxing)
- *fill*         0x06026fcb        0x5 
+ *fill*         0x06026fcf        0x1 
  .rodata.str1.16
                 0x06026fd0     0x35f0 cpu/br28/tools/sdk.elf.o
                                0x3622 (size before relaxing)
@@ -7476,10 +7476,10 @@ OUTPUT(cpu/br28/tools/sdk.elf elf32-pi32v2)
 .debug_frame    0x00000000    0x1d8e0
  .debug_frame   0x00000000    0x1d8e0 cpu/br28/tools/sdk.elf.o
 
-.debug_line     0x00000000    0xb97e9
- .debug_line    0x00000000    0xb969f cpu/br28/tools/sdk.elf.o
- .debug_line    0x000b969f       0x30 objs/apps/watch/sdk_version.z.S.o
- .debug_line    0x000b96cf      0x11a cpu/br28/liba/cpu.a(startup.S.o)
+.debug_line     0x00000000    0xb97e7
+ .debug_line    0x00000000    0xb969d cpu/br28/tools/sdk.elf.o
+ .debug_line    0x000b969d       0x30 objs/apps/watch/sdk_version.z.S.o
+ .debug_line    0x000b96cd      0x11a cpu/br28/liba/cpu.a(startup.S.o)
 
 .debug_aranges  0x00000000       0x28
  .debug_aranges
