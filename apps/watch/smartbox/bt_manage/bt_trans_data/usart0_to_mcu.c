@@ -922,7 +922,7 @@ static void uart1_sync_demo(void *p) {
 
             // 统一走 APP_MSG_USER_TONPLAY；自定义音效优先逻辑已合并到 bt.c 的 case 5
             int ret  = 0 ; 
-           // ret = app_send_message(APP_MSG_USER_TONPLAY, tone_id);
+            ret = app_send_message(APP_MSG_USER_TONPLAY, tone_id);
             if (ret == 0) {
               g_toneplay_pending = false;
               g_toneplay_retry_count = 0;

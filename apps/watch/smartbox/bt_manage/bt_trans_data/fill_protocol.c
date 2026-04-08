@@ -56,12 +56,12 @@
 extern uint8_t *uart_data;
 extern uint16_t data_length;
 extern uint16_t uart_protocol_id;
-// 默认 AES CA6E67ED5CF4668BB7057361E6C65A4E
+// 默认 AES 33DD346D76213C69AB0FE23BDC60AB30
 static const u8 *fill_protocol_get_aes_key(u8 out_key[16]);
 static const u8 test_aes_key[16] = {
-  0xCA, 0x6E, 0x67, 0xED, 0x5C, 0xF4, 0x66, 0x8B,
-  0xB7, 0x05, 0x73, 0x61, 0xE6, 0xC6, 0x5A, 0x4A
-};
+ 0x33, 0xDD, 0x34, 0x6D, 0x76, 0x21, 0x3C, 0x69,
+  0xAB, 0x0F, 0xE2, 0x3B, 0xDC, 0x60, 0xAB, 0x30
+}; 
     
 uint8_t test_aes_key1[16] = {
     };
@@ -3905,7 +3905,7 @@ void get_vehice_set_infromation_instruct(uint16_t protocol_id) {
 
   if (timer_was_running) {
     VEH_SET_TRACE("timer_start", 1, 2000);
-    vehicle_control_timer_start(11000);// 恢复定时上报
+    vehicle_control_timer_start(1000);// 恢复定时上报
   }
 
   static const uint8_t default_data[] = {
