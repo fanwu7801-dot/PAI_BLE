@@ -85,20 +85,22 @@ static int aes_key_is_valid(const u8 key[16])
 
 static const u8 *fill_protocol_get_aes_key(u8 out_key[16])
 {
+  // 优先使用从 flash 加载的运行时 AES key
   if (out_key && uart_runtime_aes_key_get(out_key)) {
-    printf("runtime_aes_key:\n");
+    printf("[AES] Using runtime key (from flash):\n");
     put_buf(out_key, 16);
     return out_key;
   }
 
+  // 回退到编译时默认 key
   if (out_key) {
     memcpy(out_key, test_aes_key, sizeof(test_aes_key));
-    printf("test_aes_key:\n");
+    printf("[AES] Using default test_aes_key (fallback):\n");
     put_buf(out_key, 16);
     return out_key;
   }
 
-  printf("test_aes_key:\n");
+  printf("[AES] Using default test_aes_key (fallback):\n");
   put_buf(test_aes_key, 16);
   return test_aes_key;
 #if 0

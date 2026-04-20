@@ -449,9 +449,11 @@ void uart_runtime_aes_key_update(const uint8_t aes_key[16])
 
   OS_ENTER_CRITICAL();
   memcpy(uart_aes_key_buffer, aes_key, sizeof(uart_aes_key_buffer));
-  memcpy(test_aes_key, aes_key, sizeof(uart_aes_key_buffer));
   g_uart_aes_valid = 1;
   OS_EXIT_CRITICAL();
+  
+  printf("[UART] Runtime AES key updated:\n");
+  put_buf(uart_aes_key_buffer, 16);
 }
 
 bool uart_runtime_aes_key_get(uint8_t aes_key_out[16])
@@ -465,9 +467,6 @@ bool uart_runtime_aes_key_get(uint8_t aes_key_out[16])
   OS_ENTER_CRITICAL();
   if (g_uart_aes_valid && uart_runtime_key_is_valid(uart_aes_key_buffer, sizeof(uart_aes_key_buffer))) {
     memcpy(aes_key_out, uart_aes_key_buffer, sizeof(uart_aes_key_buffer));
-    valid = true;
-  } else if (uart_runtime_key_is_valid(test_aes_key, sizeof(uart_aes_key_buffer))) {
-    memcpy(aes_key_out, test_aes_key, sizeof(uart_aes_key_buffer));
     valid = true;
   }
   OS_EXIT_CRITICAL();
@@ -925,6 +924,21 @@ static void uart1_sync_demo(void *p) {
   // 初始化定时器检查机制，使用MAX_SEND_NUM作为最大发送次数
   uart1_check_init(100); // 100ms检查间隔
   uart1_check_start();   // 启动定时器检查
+
+  // 从 flash 读取 AES key 到运行时缓冲区
+  {
+    uint8_t flash_aes_key[16] = {0};
+    int r = syscfg_read(CFG_DEVICE_AES_KEY, flash_aes_key, sizeof(flash_aes_key));
+    if (r == sizeof(flash_aes_key) && uart_runtime_key_is_valid(flash_aes_key, sizeof(flash_aes_key))) {
+      memcpy(uart_aes_key_buffer, flash_aes_key, sizeof(uart_aes_key_buffer));
+      g_uart_aes_valid = 1;
+      printf("[UART] AES key loaded from flash:\n");
+      put_buf(uart_aes_key_buffer, 16);
+    } else {
+      printf("[UART] No valid AES key in flash, using zero buffer\n");
+      g_uart_aes_valid = 0;
+    }
+  }
 
   // UART初始化完成后，主动向MCU发起一次0037/0038更新请求
   uart1_request_mcu_update_once();

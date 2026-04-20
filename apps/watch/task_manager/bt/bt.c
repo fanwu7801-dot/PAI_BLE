@@ -228,10 +228,6 @@ static bool bt_tone_case_to_custom_type(int case_id, uint8_t *tone_type_out)
         case_id == BCD_TO_DEC_4(Overfilling_alarm_02) ||
         case_id == BCD_TO_DEC_4(Overfilling_alarm_03) ||
         case_id == BCD_TO_DEC_4(Overfilling_alarm_04) ||
-        // case_id == BCD_TO_DEC_4(low_battery_01) ||
-        // case_id == BCD_TO_DEC_4(low_battery_02) ||
-        // case_id == BCD_TO_DEC_4(low_battery_03) ||
-        // case_id == BCD_TO_DEC_4(low_battery_04) ||
         case_id == BCD_TO_DEC_4(General_Warning_01) ||
         case_id == BCD_TO_DEC_4(General_Warning_02) ||
         case_id == BCD_TO_DEC_4(General_Warning_03) ||
@@ -242,15 +238,9 @@ static bool bt_tone_case_to_custom_type(int case_id, uint8_t *tone_type_out)
         case_id == BCD_TO_DEC_4(fifteen_size_warning_04)
     ) {
         *tone_type_out = 2;
-        log_info("bt_tone_case_to_custom_type: case_id %d 映射到自定义音效类型2（告警）\n", case_id);
+        log_info("⚠️⚠️⚠️ case_id=%d 被识别为报警音效！映射到类型2！（BCD值：17/46/74/90/18/47/75/91/19/48/70/92/25/54/76/92/26/55/77/93）\n", case_id);
         return true;
     }
-
-    if (case_id == BCD_TO_DEC_4(pairing_01)) {
-        *tone_type_out = 3;
-        return true;
-    }
-
     return false;
 #undef BCD_TO_DEC_4
 }
@@ -1649,7 +1639,8 @@ void app_bt_task()
                 /* MCU->SOC 0x00F4 转过来的 case_id：先尝试自定义音效，再回落默认，并加互斥保护 */
                 do {
                     int case_id = msg[2];
-                    log_info("音效播放: 收到 case_id=%d\n", case_id);
+                    log_info("======== 音效播放开始 ========\n");
+                    log_info("音效播放: 收到 case_id=%d (0x%04X)\n", case_id, case_id);
                     if (case_id <= 0) {
                         log_info("音效播放: case_id 无效，范围错误: %d\n", case_id);
                         break;
@@ -1658,10 +1649,17 @@ void app_bt_task()
                     extern const int tone_table_size;
 
                     /* 优先自定义音效映射：开机/关机/报警/hello 等 */
-                    u8 tone_type = 0;
+                    u8 tone_type = 0xFF;
                     bool custom_mapped = bt_tone_case_to_custom_type(case_id, &tone_type);
+                    
+                    log_info("音效播放: bt_tone_case_to_custom_type() 返回=%d, tone_type=%d\n", 
+                             custom_mapped, tone_type);
+                    
                     if (custom_mapped) {
-                        log_info("音效播放: case_id %d 映射到自定义音效类型 %d\n", case_id, tone_type);
+                        const char *type_name[] = {"开机", "关机", "报警", "未知"};
+                        const char *name = (tone_type < 3) ? type_name[tone_type] : type_name[3];
+                        log_info("音效播放: ⚠️ case_id %d 被映射到自定义音效类型 %d (%s)\n", 
+                                 case_id, tone_type, name);
                         // 自定义音效改为非打断：入队等待当前音效结束后继续播放
                         tone_play_lock();
                         bt_tone_pa_ctrl_set(1);
@@ -1675,7 +1673,7 @@ void app_bt_task()
                             log_info("音效播放: 未找到自定义音效，回退默认音效\n");
                         }
                     } else {
-                        log_info("音效播放: case_id %d 未映射自定义音效，使用默认音效\n", case_id);
+                        log_info("音效播放: ✓ case_id %d 未映射自定义音效，使用默认音效\n", case_id);
                     }
 
                     // 协议里的 case_id 直接表示音频编号：
