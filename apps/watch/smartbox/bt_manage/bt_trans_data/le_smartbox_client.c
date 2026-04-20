@@ -365,7 +365,7 @@ static bool check_device_is_match(u8 info_type, u8 *data, int size)
         /* log_info("cfg = %08x\n",cfg);	 */
         /* log_info_hexdump(cfg,sizeof(client_match_cfg_t)); */
         if (cfg->create_conn_mode == conn_mode && size == cfg->compare_data_len) {
-            log_info("match check\n");
+            // log_info("match check\n");
             /* log_info_hexdump(data, size); */
             /* log_info_hexdump(cfg->compare_data, size); */
             if (0 == memcmp(data, cfg->compare_data, cfg->compare_data_len)) {

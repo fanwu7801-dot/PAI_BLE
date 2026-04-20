@@ -191,11 +191,11 @@ static bool bt_tone_case_to_custom_type(int case_id, uint8_t *tone_type_out)
 
 #define BCD_TO_DEC_4(bcd) (((((bcd) >> 12) & 0x0F) * 1000) + ((((bcd) >> 8) & 0x0F) * 100) + ((((bcd) >> 4) & 0x0F) * 10) + (((bcd) >> 0) & 0x0F))
 
-    // 特殊处理：case_id 46 不应该映射到任何自定义音效类型 
-    // if (case_id == 46) {
-    //     log_info("bt_tone_case_to_custom_type: case_id 46 不参与自定义音效映射\n");
-    //     return false;
-    // }
+    // 特殊处理：case_id 46 不参与自定义音效映射，避免边撑感应误走“告警自定义音效”
+    if (case_id == 46) {
+        log_info("bt_tone_case_to_custom_type: case_id 46 skip custom mapping\n");
+        return false;
+    }
 
     // 用 if/else 代替 switch-case：部分 tone_user_table 的 BCD 值可能重复，switch 会编译失败
     if (case_id == BCD_TO_DEC_4(Power_on_01) ||
@@ -1662,11 +1662,10 @@ void app_bt_task()
                     bool custom_mapped = bt_tone_case_to_custom_type(case_id, &tone_type);
                     if (custom_mapped) {
                         log_info("音效播放: case_id %d 映射到自定义音效类型 %d\n", case_id, tone_type);
-                        // 自定义音效播放加互斥，避免并发冲突
+                        // 自定义音效改为非打断：入队等待当前音效结束后继续播放
                         tone_play_lock();
-                        bt_tone_interrupt_current_locked();
                         bt_tone_pa_ctrl_set(1);
-                        bool played = user_custom_tone_play_if_exist(tone_type, 1);
+                        bool played = user_custom_tone_play_if_exist(tone_type, 0);
                         tone_play_unlock();
                         if (played) {
                             log_info("音效播放: 自定义音效播放成功\n");
@@ -1708,9 +1707,8 @@ void app_bt_task()
                     int case_id = packed & 0xFFFF;
                     u8 tone_type = (u8)((packed >> 16) & 0xFF);
                     tone_play_lock();
-                    bt_tone_interrupt_current_locked();
                     bt_tone_pa_ctrl_set(1);
-                    bool played = user_custom_tone_play_if_exist(tone_type, 1);
+                    bool played = user_custom_tone_play_if_exist(tone_type, 0);
                     if (!played) {
                         bt_tone_pa_ctrl_set(0);
                         // 回退原来的内置提示音

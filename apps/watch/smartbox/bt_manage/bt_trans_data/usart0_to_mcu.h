@@ -47,5 +47,9 @@ void uart1_check_start(void);
 void uart1_check_stop(void);
 void uart1_check_deinit(void);
 void uart1_check_handler(void);
+void uart_runtime_sn_update(const uint8_t sn[8]);
+bool uart_runtime_sn_get(uint8_t sn_out[8]);
+void uart_runtime_aes_key_update(const uint8_t aes_key[16]);
+bool uart_runtime_aes_key_get(uint8_t aes_key_out[16]);
 
 #endif

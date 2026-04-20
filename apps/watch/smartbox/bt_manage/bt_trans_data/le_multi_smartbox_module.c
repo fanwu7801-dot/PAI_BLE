@@ -55,9 +55,7 @@ extern u32 smbox_pairing_get_pending_passkey(u16 conn_handle);
 extern void smbox_pairing_clear_pending(void);
 static void smbox_passkey_input_cb(u32 *key, u16 conn_handle);
 
-// usart0_to_mcu.c 中的运行期缓存，用于在syscfg未落�?读不到时兜底刷新广播与f6f1
-extern uint8_t uart_sn_buffer[8];
-extern volatile uint8_t g_uart_sn_valid;
+// usart0_to_mcu.c 中的运行期缓存，通过受保护接口读取，用于在syscfg未落盘时兜底刷新广播与f6f1
 #if OTA_RX_EN
 #include "btstack/third_party/wireless_mic/wl_mic_api.h"
 #include "update_rx_ota.h"
@@ -65,6 +63,11 @@ extern volatile uint8_t g_uart_sn_valid;
 
 /* 低功耗控制接�?- 在board_701n_demo.c中实�?*/
 extern void ble_connection_lowpower_ctrl(u8 connected);
+
+
+#ifndef BLE_AES_KEY_FLASH_UNIT_TEST
+#define BLE_AES_KEY_FLASH_UNIT_TEST  0
+#endif
 
 #if TCFG_CAT1_MODULE_UPDATE_ENABLE
 #include "task_manager/cat1/cat1_common.h"
@@ -98,6 +101,25 @@ extern void ble_connection_lowpower_ctrl(u8 connected);
 #define log_info(...)
 #define log_info_hexdump(...)
 #endif
+
+
+
+static void ble_aes_key_flash_unit_test_write(void)
+{
+    static const u8 unit_test_aes_key[16] = {
+        0x17, 0xED, 0x2D, 0xD3, 0x1F, 0x1E, 0xF5, 0x52,
+        0x51, 0xBC, 0xB4, 0x86, 0x2D, 0x1C, 0xE9, 0x66
+    };
+    u8 readback[16] = {0};
+    int w = syscfg_write(CFG_DEVICE_AES_KEY, (void *)unit_test_aes_key, sizeof(unit_test_aes_key));
+    int r = syscfg_read(CFG_DEVICE_AES_KEY, readback, sizeof(readback));
+
+    printf("[AES_UT] write CFG_DEVICE_AES_KEY ret=%d, readback ret=%d\n", w, r);
+    if (r == sizeof(readback)) {
+        printf("[AES_UT] readback key:\n");
+        put_buf(readback, sizeof(readback));
+    }
+}
 
 #define SN_DERIVED_MAC_HEADER_BYTE 0xC0
 #define LOCAL_TEST_SN_ENABLE 0
@@ -181,7 +203,7 @@ static const char user_tag_string[] = {EIR_TAG_STRING};
 /* #define ATT_RAM_BUFSIZE           (ATT_CTRL_BLOCK_SIZE + ATT_LOCAL_PAYLOAD_SIZE + ATT_SEND_CBUF_SIZE)                   //note: */
 /* static u8 att_ram_buffer[ATT_RAM_BUFSIZE] __attribute__((aligned(4))); */
 // 添加了edr的att后使用ble多机流程
-#define SMBOX_MULTI_ATT_MTU_SIZE (517) // ATT MTU的�?(修改�?12以优化传�?
+#define SMBOX_MULTI_ATT_MTU_SIZE (512) // ATT MTU的�?(修改�?12以优化传�?
 // ATT发送的包长,    note: 23 <= need >= MTU
 #define SMBOX_MULTI_ATT_LOCAL_PAYLOAD_SIZE (SMBOX_MULTI_ATT_MTU_SIZE) //
 // ATT缓存的buffer大小,  note: need >= 23,可修�?
@@ -192,16 +214,12 @@ static u8 smbox_multi_att_ram_buffer[SMBOX_MULTI_ATT_RAM_BUFSIZE] __attribute__(
 
 //---------------
 //---------------
-#define ADV_INTERVAL_MIN (160 * 5) // n*0.625ms
-/* #define ADV_INTERVAL_MIN          (0x30) */
-
-#if (TCFG_BLE_ADV_DYNAMIC_SWITCH && TCFG_UI_ENABLE)
-#define ADV_INTERVAL_QUICK (160 * 1)
-#define ADV_INTERVAL_NORMAL (160 * 5)
-#define ADV_INTERVAL_SLOW (160 * 10)
-#undef ADV_INTERVAL_MIN
-#define ADV_INTERVAL_MIN ADV_INTERVAL_QUICK // ADV_INTERVAL_NORMAL
-#endif                                      /* #if (TCFG_BLE_ADV_DYNAMIC_SWITCH && TCFG_UI_ENABLE) */
+/* 固定广播间隔为 100ms，单位 0.625ms -> 160 */
+#define ADV_INTERVAL_FIXED (160)
+#define ADV_INTERVAL_MIN ADV_INTERVAL_FIXED
+#define ADV_INTERVAL_QUICK ADV_INTERVAL_FIXED
+#define ADV_INTERVAL_NORMAL ADV_INTERVAL_FIXED
+#define ADV_INTERVAL_SLOW ADV_INTERVAL_FIXED
 
 typedef struct le_multi_smartbox_ble_hdl_t
 {
@@ -2748,8 +2766,8 @@ static void f6f1_delay_send_handler(void)
         0x01, 0x00, 0x01,
         'S', 'W', '_', 'V', '1', '.', '0', 0x00,
         'H', 'W', '_', 'V', '1', '.', '2', 0x00,
-         0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x70,// SN 位置从第19个字节开始，�?字节--->new sn
-       // 0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC5, // SN 位置从第19个字节开始，�?字节---->old sn
+        //  0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x87,// SN 位置从第19个字节开始，�?字节--->new sn
+       0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC2, // SN 位置从第19个字节开始，�?字节---->old sn
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         'F', 'O', 'T', 'A', '_', 'V', '1', '.', '0', '_', 'B', 'U', 'I', 'L', 'D', '0', '0', '1', 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -2818,8 +2836,6 @@ static u8 scan_rsp_data[ADV_RSP_PACKET_MAX]; // max is 31
 
 extern void swapX(const uint8_t *src, uint8_t *dst, int len);
 extern const u8 *bt_get_mac_addr();
-extern uint8_t uart_sn_buffer[8];
-extern volatile uint8_t g_uart_sn_valid;
 static void rcsp_adv_fill_mac_addr(u8 *mac_addr_buf)
 {
     u8 mac[6];
@@ -2852,13 +2868,13 @@ static int get_valid_sn_hex8(u8 *sn_out)
         }
     }
     // flash 无有效 SN 时，先尝试运行期 UART 缓存
-    if (g_uart_sn_valid)
+    if (uart_runtime_sn_get(sn))
     {
-        for (i = 0; i < sizeof(uart_sn_buffer); i++)
+        for (i = 0; i < sizeof(sn); i++)
         {
-            if (uart_sn_buffer[i] != 0)
+            if (sn[i] != 0)
             {
-                memcpy(sn_out, uart_sn_buffer, sizeof(uart_sn_buffer));
+                memcpy(sn_out, sn, sizeof(sn));
                 return 1;
             }
         }
@@ -2923,8 +2939,8 @@ static u8 custom_rsp_data[] = {
     0x00,                                           // 预留字段: 0x00 (1Byte)
     0x00, 0xA2, 0xDE, 0xB6, 0x8E, 0xF8,             // MAC地址: 00A2 DEB6 8EF8 (6Byte)
     0x04,                                           // 设备类型: 03 代表中控VBU (1Byte)
-  //  0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC2, // 设备SNtoHEX: 0003 32A3 55DD F6C2 (8Byte) sn�?
-     0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x70,// SN 位置从第19个字节开始，�?字节--->new sn
+   0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC2, // 设备SNtoHEX: 0003 32A3 55DD F6C2 (8Byte) sn�?
+    // 0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x87,// SN 位置从第19个字节开始，�?字节--->new sn
     0x01, 0x00, 0x00, 0x00, 0x00, 0x00 // 设备状�? 0100 0000 0000 (6Byte)
 };
 /*************************************************************
@@ -2981,15 +2997,15 @@ static void update_sn_hex_in_rsp_data_from_cfg(u8 *rsp_data)
     }
 
     // cfg读不�?未写入：如果UART已收到最新SN，则用运行期SN兜底刷新广播
-    if (g_uart_sn_valid)
+    if (uart_runtime_sn_get(sn))
     {
-        for (u8 i = 0; i < 8; i++)
+        for (u8 i = 0; i < sizeof(sn); i++)
         {
-            if (uart_sn_buffer[i] != 0)
+            if (sn[i] != 0)
             {
-                memcpy(&rsp_data[sn_pos], uart_sn_buffer, 8);
+                memcpy(&rsp_data[sn_pos], sn, sizeof(sn));
                 log_info("Updated SN in rsp data from UART cache (hex):");
-                log_info_hexdump(uart_sn_buffer, 8);
+                log_info_hexdump(sn, sizeof(sn));
                 return;
             }
         }
@@ -3018,58 +3034,86 @@ static int multi_smartbox_make_set_rsp_data(u8 cid)
 // 32-->1 32--->2 以此类推
 static int multi_smartbox_make_set_adv_data(u8 cid)
 {
-    static const u8 custom_adv_data[] = {
-        0x02, 0x01, 0x06,                                                // Flags: 长度2, 类型1, �?x06
-        0x03, 0x03, 0x12, 0x18,                                          // 16位服务UUID: 长度3, 类型3, �?x1812
-        0x0A, 0x09, 0x50, 0x41, 0x49, 0x42, 0x54, 0x30, 0x30, 0x31, 0x36 // 设备名称: "PAIBT0024" (大写)---> 蓝牙sn码后4位，默认值
+    static const u16 custom_uuid16_list[] = {
+        0xF5F0, 0xF5F1,
+        0xF6F0, 0xF6F1, 0xF6F2,
+        0xF7F0, 0xF7F1, 0xF7F2,
+        0xF8F0, 0xF8F1, 0xF8F2,
     };
-    u8 offset = sizeof(custom_adv_data);
-    u8 adv_buf[sizeof(custom_adv_data)];
-    u8 *buf = adv_buf;
-    u8 sn[8] = {0};
-    const u8 *sn_src = NULL;
-    // 更新设备名称中的SN码后4位
-    memcpy(adv_buf, custom_adv_data, sizeof(custom_adv_data));
+    static const u8 adv_name_template[] = {
+        'P', 'A', 'I', 'B', 'T', '0', '0', '0', '2'
+    };
+    const u8 custom_uuid16_cnt = sizeof(custom_uuid16_list) / sizeof(custom_uuid16_list[0]);
+    const u8 name_len = sizeof(adv_name_template);
+    const u8 name_ad_total_len = 1 + 1 + name_len; // len + type + name
 
-#if 1 // 恢复SN码更新逻辑
-    int r = syscfg_read(CFG_DEVICE_SN, sn, sizeof(sn));
-    if (r == sizeof(sn))
+    u8 adv_buf[ADV_RSP_PACKET_MAX] = {0};
+    u8 *buf = adv_buf;
+    u8 offset = 0;
+    u8 uuid_ad_len_pos;
+    u8 uuid_cnt = 0;
+    u8 sn[8] = {0};
+
+    // Flags
+    adv_buf[offset++] = 0x02;
+    adv_buf[offset++] = 0x01;
+    adv_buf[offset++] = 0x06;
+
+    // 16位UUID列表（本包放不下全部时，使用不完整列表类型）
+    uuid_ad_len_pos = offset;
+    adv_buf[offset++] = 0x00; // AD长度占位
+    adv_buf[offset++] = 0x02; // Incomplete List of 16-bit Service Class UUIDs
+
+    for (u8 i = 0; i < custom_uuid16_cnt; i++)
     {
-        for (u8 i = 0; i < sizeof(sn); i++)
+        u16 uuid = custom_uuid16_list[i];
+
+        // 预留设备名字段空间，保证SN后4位仍可通过名称广播
+        if ((offset + 2 + name_ad_total_len) > ADV_RSP_PACKET_MAX)
         {
-            if (sn[i] != 0)
-            {
-                sn_src = sn;
-                break;
-            }
+            break;
         }
+
+        adv_buf[offset++] = (u8)(uuid & 0xFF);
+        adv_buf[offset++] = (u8)((uuid >> 8) & 0xFF);
+        uuid_cnt++;
     }
-    if (!sn_src && g_uart_sn_valid)
+
+    if (uuid_cnt == 0)
     {
-        for (u8 i = 0; i < 8; i++)
-        {
-            if (uart_sn_buffer[i] != 0)
-            {
-                sn_src = uart_sn_buffer;
-                break;
-            }
-        }
+        // 理论上不会发生，兜底至少广播一个UUID
+        adv_buf[offset++] = (u8)(custom_uuid16_list[0] & 0xFF);
+        adv_buf[offset++] = (u8)((custom_uuid16_list[0] >> 8) & 0xFF);
+        uuid_cnt = 1;
     }
-    if (sn_src)
+    adv_buf[uuid_ad_len_pos] = 1 + uuid_cnt * 2;
+
+    // 设备名：PAIBTxxxx
+    adv_buf[offset++] = 1 + name_len;
+    adv_buf[offset++] = 0x09;
+    memcpy(&adv_buf[offset], adv_name_template, name_len);
+
+    // 根据SN更新设备名后4位
+    if (get_valid_sn_hex8(sn))
     {
         u64 v = 0;
-        for (u8 i = 0; i < 8; i++)
+        for (u8 i = 0; i < sizeof(sn); i++)
         {
-            v = (v << 8) | sn_src[i];
+            v = (v << 8) | sn[i];
         }
         u16 last4 = (u16)(v % 10000);
-        adv_buf[14] = (u8)('0' + (last4 / 1000) % 10);
-        adv_buf[15] = (u8)('0' + (last4 / 100) % 10);
-        adv_buf[16] = (u8)('0' + (last4 / 10) % 10);
-        adv_buf[17] = (u8)('0' + (last4 % 10));
+        adv_buf[offset + 5] = (u8)('0' + (last4 / 1000) % 10);
+        adv_buf[offset + 6] = (u8)('0' + (last4 / 100) % 10);
+        adv_buf[offset + 7] = (u8)('0' + (last4 / 10) % 10);
+        adv_buf[offset + 8] = (u8)('0' + (last4 % 10));
         log_info("Updated adv name SN: %04d\n", last4);
     }
-#endif
+    offset += name_len;
+
+    if (uuid_cnt < custom_uuid16_cnt)
+    {
+        log_info("adv uuid truncated: %d/%d\n", uuid_cnt, custom_uuid16_cnt);
+    }
 
     log_info("adv_data(%d):", offset);
     log_info_hexdump(buf, offset);
@@ -3080,10 +3124,11 @@ static int multi_smartbox_make_set_adv_data(u8 cid)
             continue;
         }
         /* ble_op_set_adv_data(offset, buf); */
-        app_ble_adv_data_set(le_multi_smartbox_ble_hd[cid].le_multi_smartbox_ble_hdl, buf, offset);
+        app_ble_adv_data_set(le_multi_smartbox_ble_hd[i].le_multi_smartbox_ble_hdl, buf, offset);
     }
     return 0;
 }
+
 static int make_set_adv_data(u8 cid)
 {
     return multi_smartbox_make_set_adv_data(cid);
@@ -3143,6 +3188,7 @@ static void advertisements_setup_init(u8 cid)
     /* ble_op_set_adv_param(adv_interval, adv_type, adv_channel); */
     app_ble_set_adv_param(le_multi_smartbox_ble_hd[cid].le_multi_smartbox_ble_hdl, adv_interval, adv_type, adv_channel);
     // }
+    
 
 #if TCFG_PAY_ALIOS_ENABLE
     if (upay_mode_enable)
@@ -3966,8 +4012,15 @@ void le_smartbox_bt_ble_init(void)
     // 初始化RSSI检查模�?
     rssi_check_init();
     /* 1. 发送SN码和AES key给MCU，等待回复并更新 */
-    uart1_send_toMCU(0x00f6, NULL, 0);
-    uart1_send_toMCU(0x00f7, NULL, 0);
+    // uart1_send_toMCU(0x00f6, NULL, 0);
+#if BLE_AES_KEY_FLASH_UNIT_TEST
+    ble_aes_key_flash_unit_test_write();
+    /* 单元测试路径下给flash写入和读回留一点时间，避免初始化阶段紧跟后续流程 */
+  
+#else
+    // uart1_send_toMCU(0x00f7, NULL, 0);
+#endif
+    os_time_dly(2);
     ble_vendor_set_default_att_mtu(SMBOX_MULTI_ATT_LOCAL_PAYLOAD_SIZE);
     bt_ble_rcsp_adv_enable();
 

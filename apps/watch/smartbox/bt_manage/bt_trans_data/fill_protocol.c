@@ -1,4 +1,4 @@
-#include "fill_protocol.h"
+﻿#include "fill_protocol.h"
 #include "string.h"
 // #include "manage_PAIBT/aes_pakcs7.h"
 #include "btstack/le/att.h"
@@ -28,10 +28,10 @@
 
 /* AES 调试开关，需要确认当前实际使用的密钥来源时打开 */
 #ifndef FILL_PROTOCOL_AES_DBG
-#define FILL_PROTOCOL_AES_DBG  0
+#define FILL_PROTOCOL_AES_DBG  1
 #endif
 
-/* 车辆设置(0x0033)链路调试开关 */
+/* 车辆设置(0x0033)链路调试开启*/
 #ifndef VEH_SET_DBG
 #define VEH_SET_DBG  1
 #endif
@@ -42,7 +42,7 @@
 #define VEH_SET_TRACE(tag, a, b)  do { } while (0)
 #endif
 
-/* 兼容旧 BLE 发送接口的宏；当前统一走 multi-ble 接口 */
+/* 兼容 BLE 发送接口的宏；当前统一 multi-ble 接口 */
 #ifndef app_send_user_data_check
 #define app_send_user_data_check  le_multi_app_send_user_data_check
 #endif
@@ -52,35 +52,63 @@
 #ifndef app_recieve_callback
 #define app_recieve_callback      le_multi_dispatch_recieve_callback
 #endif
-// 外部 UART 缓冲，用于接收 MCU 返回的数据、协议 ID 和数据长度
+// 外部 UART 缓冲，用于接向 MCU 返回的数据、协议 ID 和数据长度
 extern uint8_t *uart_data;
 extern uint16_t data_length;
 extern uint16_t uart_protocol_id;
-// 默认 AES 33DD346D76213C69AB0FE23BDC60AB30
+// 默认 AES 17ED2DD31F1EF55251BCB4862D1CE965
 static const u8 *fill_protocol_get_aes_key(u8 out_key[16]);
-static const u8 test_aes_key[16] = {
- 0x33, 0xDD, 0x34, 0x6D, 0x76, 0x21, 0x3C, 0x69,
-  0xAB, 0x0F, 0xE2, 0x3B, 0xDC, 0x60, 0xAB, 0x30
+u8 test_aes_key[16] = {
+0x17, 0xED, 0x2D, 0xD3, 0x1F, 0x1E, 0xF5, 0x52,
+0x51, 0xBC, 0xB4, 0x86, 0x2D, 0x1C, 0xE9, 0x66    
 }; 
     
-uint8_t test_aes_key1[16] = {
-    };
-static const u8 *fill_protocol_get_aes_key(u8 out_key[16])
+static int aes_key_is_valid(const u8 key[16])
 {
-  int r = syscfg_read(CFG_DEVICE_AES_KEY, out_key, 16);
-  if (r == 16) {
-    for (u8 i = 0; i < 16; i++) {
-      if (out_key[i] != 0) {
-        return out_key;
-      }
+  u8 all_zero = 1;
+  u8 all_ff = 1;
+
+  if (!key) {
+    return 0;
+  }
+  for (u8 i = 0; i < 16; i++) {
+    if (key[i] != 0x00) {
+      all_zero = 0;
+    }
+    if (key[i] != 0xFF) {
+      all_ff = 0;
     }
   }
-#if FILL_PROTOCOL_AES_DBG
-  printf("[AES] use default key, syscfg_read=%d key:", r);
-  put_buf(test_aes_key, 16);
-#endif
-  return test_aes_key;
+
+  return (!all_zero && !all_ff);
 }
+
+static const u8 *fill_protocol_get_aes_key(u8 out_key[16])
+{
+  if (out_key && uart_runtime_aes_key_get(out_key)) {
+    printf("runtime_aes_key:\n");
+    put_buf(out_key, 16);
+    return out_key;
+  }
+
+  if (out_key) {
+    memcpy(out_key, test_aes_key, sizeof(test_aes_key));
+    printf("test_aes_key:\n");
+    put_buf(out_key, 16);
+    return out_key;
+  }
+
+  printf("test_aes_key:\n");
+  put_buf(test_aes_key, 16);
+  return test_aes_key;
+#if 0
+  int r = syscfg_read(CFG_DEVICE_AES_KEY, out_key, sizeof(out_key));
+  printf("syscfg_read(CFG_DEVICE_AES_KEY) ret=%d\n", r);
+  put_buf(out_key, sizeof(out_key));
+  return out_key;
+#endif
+}
+
 uint8_t encrypt_data[1024] = {0};    // 用于存储加密后的发送数据
 // 全局协议收发状态
 t_ble_protocl send_protocl; // 发送协议结构，最终下发到 MCU / APP
@@ -94,15 +122,15 @@ uint8_t content_data_buffer[256]; // 协议负载缓存
 uint16_t content_length = 0;      // 协议负载长度
 
 /* 音效相关协议处理开关：0x0075 / 0x2206 / 0x2207
- * 之所以在第一次 #if 使用前定义，是因为不同编译单元的引用顺序不一致，
- * 提前统一默认值，避免同一套代码在不同裁剪配置下出现编译差异。
- * 默认值为 1，表示直接支持 APP 音效协议；如需裁剪可在工程配置里覆盖。
+ * 之所以在第一处 #if 使用前定义，是因为不同编译单元的引用顺序不一致，
+ * 提前统一默认值，避免同一套代码在不同裁剪配置下出现编译差异
+ * 默认值为 1，表示直接支给 APP 音效协议；如需裁剪可在工程配置里覆盖
  */
 #ifndef FILL_PROTOCOL_MUSIC_ENABLE
 #define FILL_PROTOCOL_MUSIC_ENABLE  1
 #endif
 
-// ---- 音效相关协议（0x0075/0x2206/0x2207）前置声明，避免下方调用时缺少原型 ----
+// ---- 音效相关协议x0075/0x2206/0x2207）前置声明，避免下方调用时缺少原型 ----
 #if FILL_PROTOCOL_MUSIC_ENABLE
 static void get_vehice_music_infromation_instruct(uint16_t protocol_id);
 #else
@@ -122,7 +150,7 @@ static void get_vehice_music_infromation_infromation_reply_empty(uint16_t protoc
   }
 }
 
-/* 这里不要加 inline，避免在裁剪或优化配置下未生成实体符号，导致 undefined reference */
+/* 这里不要用 inline，避免在裁剪或优化配置下未生成实体符号，导致 undefined reference */
 static void get_vehice_music_infromation_instruct(uint16_t protocol_id)
 {
   log_info("get_vehice_music_infromation disabled (protocol_id=0x%04x)\n", protocol_id);
@@ -174,7 +202,7 @@ static int is_all_zero(const uint8_t *data, uint16_t len)
 int judge_periheral_flash_macadd(const uint8_t *mac_addr)
 {
   (void)mac_addr;
-  /* 当前未实现外设 flash MAC 校验，默认返回未命中 */
+  /* 当前未实现外部 flash MAC 校验，默认返回未命中 */
   return 0;
 }
 
@@ -194,7 +222,7 @@ void Seamless_Unlocking(uint16_t protocol_id, const uint8_t *payload)
 
 /* 配对状态，防止重复发起 */
 static volatile uint8_t pairing_in_progress = 0;
-/* UART 指定的 passkey，下次配对时优先使用 */
+/* UART 指定 passkey，下次配对时优先使用 */
 static volatile uint8_t g_uart_pair_passkey_valid = 0;
 static uint32_t g_uart_pair_passkey = 0;
 extern void sm_api_request_pairing(hci_con_handle_t con_handle);
@@ -299,7 +327,11 @@ uint8_t ble_proto_ble_pair_req_Proc(uint16_t protocol_id)
 
   AES_KEY aes_key;
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
   aes_encrypt_pkcs(&aes_key, send_pairing_code, send_len, encrypt_data, &encrypt_len);
 
   if (encrypt_len > sizeof(send_pairing_code)) {
@@ -410,7 +442,7 @@ static void remove_vehicle_binding_instruct(uint16_t protocol_id);
 /* f7f2：车辆设置参数下发相关回调在本文件后部实现，这里先做前向声明 */
 void send_vehicle_set_param_instruct(uint16_t protocol_id, uint8_t *instruct);
 
-/* 钥匙/配置类通用回包：统一通过 f7f1 notify 到 APP，在 app_core 中完成 convert + AES */
+/* 钥匙/配置类通用回包：统一通过 f7f1 notify 给 APP，在 app_core 中完成 convert + AES */
 static void ble_reply_to_app_f7f1_post(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len);
 
 /* 某些模块缺失时提供的兜底声明 / stub，保证单文件可独立编译 */
@@ -434,8 +466,8 @@ static s8 g_last_persist_vol = -2; // -2: 未初始化
 static void volume_apply_cb(int req_ptr);
 void set_volume_instruct(uint16_t protocol_id)
 {
-  /* 音量设置：同时更新 SOC 音量、透传 MCU，并回包给 APP
-   * 当前格式为 3 bytes，定义为 [0]=code [1]=parm_id [2]=parm_value
+  /* 音量设置：同时更SOC 音量、透传 MCU，并回包给 APP
+   * 当前格式3 bytes，定义为 [0]=code [1]=parm_id [2]=parm_value
    */
   if (!fill_require_content(protocol_id, 3)) {
     log_info("set_volume invalid payload (len=%d)\n", content_length);
@@ -443,44 +475,44 @@ void set_volume_instruct(uint16_t protocol_id)
   }
 
   u8 parm_id = content_data[1];
-  u8 vol_val = content_data[2];       // APP 传入的原始档位值，1~3 表示高/中/低
+  u8 vol_val = content_data[2];       // APP 传入的原始档位值，1~3 表示
   (void)parm_id;
   log_info("set_volume: parm_id=%u，APP原始档位=%u\n", (unsigned)parm_id, (unsigned)vol_val);
-  /* 档位映射：1/2/3 分别表示高/中/低，值越大音量越低
+  /* 档位映射/2/3 分别表示低，值越大音量越界
    * - 如果本身就是 1/2/3，直接使用
-   * - 如果传的是 0~100，则按区间映射到 1/2/3，兼容不同 APP 实现
+   * - 如果传的0~100，则按区间映射到 1/2/3，兼容不给 APP 实现
    */
   u8 mapped;
   if (vol_val >= 1 && vol_val <= 3) {
-    mapped = vol_val; // 1=高 2=中 3=低
+    mapped = vol_val; // 1=2=3=
   } else if (vol_val <= 100) {
     if (vol_val <= 33) {
-      mapped = 1; // 高
+      mapped = 1; // 
     } else if (vol_val <= 66) {
-      mapped = 2; // 中
+      mapped = 2; // 
     } else {
-      mapped = 3; // 低
+      mapped = 3; // 
     }
   } else {
     mapped = 2;
   }
 
-  /* ======== 计算 SOC 侧实际音量档位 ======== */
+  /* ======== 计算 SOC 侧实际音量档======== */
   u8 sys_max = get_max_sys_vol();
-  log_info("set_volume: 系统最大音量=%d\n", sys_max);
+  log_info("set_volume: 系统最大音量%d\n", sys_max);
 
   s8 soc_volume = 0;
   switch (mapped) {
-  case 3:  // 低档：映射到相对更小的一组音量值
+  case 3:  // 低档：映射到相对更小的一组音量
     soc_volume = 15;
     break;
-  case 2:  // 中档：映射到中间音量值
+  case 2:  // 中档：映射到中间音量
     soc_volume = 17;
     if (soc_volume < 1) {
       soc_volume = 1;
     }
     break;
-  case 1:  // 高档：映射到较大的音量值，可按产品需求继续微调
+  case 1:  // 高档：映射到较大的音量值，可按产品需求继续微
   default:
     soc_volume = 21;
     if (soc_volume < 1) {
@@ -517,7 +549,7 @@ void set_volume_instruct(uint16_t protocol_id)
     log_info("set_volume: volume apply pending, skip reschedule");
   }
 
-  /* 额外同步 MUSIC/WTONE 两类音量，减少切换场景时的瞬时差异 */
+  /* 额外同步 MUSIC/WTONE 两类音量，减少切换场景时的瞬时差*/
   app_audio_set_volume(APP_AUDIO_STATE_MUSIC, soc_volume, 1);
   app_audio_set_volume(APP_AUDIO_STATE_WTONE, soc_volume, 1);
 
@@ -527,7 +559,7 @@ void set_volume_instruct(uint16_t protocol_id)
   uint8_t reply_buff[3];
   reply_buff[0] = content_data[0];
   reply_buff[1] = content_data[1];
-  reply_buff[2] = vol_val; // 回包给 APP 时保持原始档位值
+  reply_buff[2] = vol_val; // 回包给 APP 时保持原始档位
 
   fill_send_protocl(protocol_id, reply_buff, 3);
   uint8_t send_code[269] = {0};
@@ -557,7 +589,7 @@ static void volume_apply_cb(int req_ptr)
   }
 
   s8 soc_volume = req->soc_volume;
-  /* 同步全局音量缓存，供重启或切场景时复用 */
+  /* 同步全局音量缓存，供重启或切场景时恢复*/
   app_var.music_volume = soc_volume;
   app_var.wtone_volume = soc_volume;
 
@@ -578,7 +610,7 @@ static void volume_apply_cb(int req_ptr)
     g_last_persist_vol = soc_volume;
   }
 
-  /* 仅在 MUSIC 状态下立即应用，避免影响其它音频场景 */
+  /* 仅在 MUSIC 状态下立即应用，避免影响其它音频场*/
   u8 cur_state = app_audio_get_state();
   log_info("set_volume_apply: state=%u apply MUSIC volume=%d (mapped=%u)\n", cur_state, soc_volume, req->mapped);
   if (cur_state == APP_AUDIO_STATE_MUSIC) {
@@ -610,7 +642,7 @@ typedef struct {
 
 static fill_ble_notify_req_t g_ble_notify_req;
 static volatile uint8_t g_ble_notify_req_pending = 0;
-/* BLE 通知队列，已有 pending 时先入队 */
+/* BLE 通知队列，已pending 时先入队 */
 #define BLE_NOTIFY_QUEUE_SIZE 3
 static fill_ble_notify_req_t g_ble_notify_queue[BLE_NOTIFY_QUEUE_SIZE];
 static uint8_t g_ble_notify_queue_head = 0;
@@ -662,7 +694,7 @@ static void ble_notify_post_cb(int req_ptr);
 static void ble_notify_kick_queue(void);
 static void volume_apply_cb(int req_ptr);
 
-/* 0x0033 获取车辆设置信息时，切到 app_core 执行，避免阻塞 btstack 栈线程 */
+/* 0x0033 获取车辆设置信息时，切到 app_core 执行，避免阻btstack 栈线*/
 static void get_vehicle_set_info_post(uint16_t protocol_id);
 static void get_vehicle_set_info_post_cb(int protocol_id_int);
 #define OTA_DEFAULT_MAX_PKT_LEN   180
@@ -851,39 +883,39 @@ uint8_t vehicle_control_buff[] = {
     0x01,                   // 主动上报
     0x00, 0x00, 0x00, 0x00, // 当前里程
     0x00, 0x00, 0x00, 0x00, // 总里程
-    0x49,                   // 电量百分比
+    0x49,                   // 电量百分
     0x00, 0xFF,             // 续航里程
     0x00,                   // 设防状态
     0x01,                   // 电门状态
     0x00,                   // 欠压标识
-    0x00,                   // 车辆状态，0x00 表示已关闭
+    0x00,                   // 车辆状态，0x00 表示已关
     0x04,                   // GPS
     0x04,                   // GSM
 };
 typedef struct {
   uint8_t report_type;      // 上报类型 (0x01)
   uint32_t current_mileage; // 当前里程 (4 字节)
-  uint32_t total_mileage;   // 总里程 (4 字节)
-  uint8_t battery_level;    // 电量百分比 (0x49 = 73%)
+  uint32_t total_mileage;   // 总里程(4 字节)
+  uint8_t battery_level;    // 电量百分(0x49 = 73%)
   uint16_t endurance;       // 续航里程 (0x00FF = 255)
-  uint8_t defense_status;   // 设防状态 (0x01)
-  uint8_t power_state;      // 电门状态 (0x01)
+  uint8_t defense_status;   // 设防状态(0x01)
+  uint8_t power_state;      // 电门状态(0x01)
   uint8_t voltage_flag;     // 欠压标识 (0x00)
-  uint8_t vehicle_status;   // 车辆状态 (0x00 表示已关闭)
-  uint8_t gps_status;       // GPS 状态 (0x04)
-  uint8_t gsm_status;       // GSM 状态 (0x04)
+  uint8_t vehicle_status;   // 车辆状态(0x00 表示已关
+  uint8_t gps_status;       // GPS 状态(0x04)
+  uint8_t gsm_status;       // GSM 状态(0x04)
 } vehicle_status_t;
 
 // 初始化车辆状态结构，默认电门状态为 1
 vehicle_status_t vehicle_status = {.power_state = 1};
 static u32 vehicle_control_timer_handle = 0; // 定时器句柄
-static u8 vehicle_control_timer_enabled = 0; // 定时器状态标记
+static u8 vehicle_control_timer_enabled = 0; // 定时器状态标志
 extern hci_con_handle_t smartbox_get_con_handle(void);
 // 定时拉取车辆状态并主动上报
 static void vehicle_control_timer_handler(void) {
-  /* 该函数运行在定时器回调里，尽量避免长时间阻塞。
-   * 之前的 while + os_time_dly(1) 最长会拖到约 200ms，容易影响系统调度和 app_core 队列。
-   * 当前改为尽量异步获取：如果 MCU 本轮已经回了 0x0012，就更新缓存；否则继续使用上一次有效数据上报。
+  /* 该函数运行在定时器回调里，尽量避免长时间阻塞
+   * 之前while + os_time_dly(1) 最长会拖到200ms，容易影响系统调度和 app_core 队列
+   * 当前改为尽量异步获取：如向 MCU 本轮已经回了 0x0012，就更新缓存；否则继续使用上一次有效数据上报
    */
   
   static uint32_t last_current_mileage = 0;
@@ -894,8 +926,8 @@ static void vehicle_control_timer_handler(void) {
   
 #define MAX_CURRENT_MILEAGE_DELTA 1000  // 当前里程单次最大增量限制
 #define MAX_TOTAL_MILEAGE_DELTA 1000     // 总里程单次最大增量限制
-#define MAX_BATTERY_LEVEL_DELTA 20        // 电量单次最大变化 20%
-#define MAX_ENDURANCE_DELTA 500          // 续航单次最大变化 500
+#define MAX_BATTERY_LEVEL_DELTA 20        // 电量单次最大变化20%
+#define MAX_ENDURANCE_DELTA 500          // 续航单次最大变化500
   
   // 1. 向 MCU 请求最新车辆状态
 uart1_send_toMCU(0x0012, NULL, 0);
@@ -907,7 +939,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
     return;
   }
   
-  // 3. 等 MCU 回一帧，最多等约 20ms，避免一直使用旧数据
+  // 3. 向 MCU 回一帧，最多等20ms，避免一直使用旧数据
   bool data_valid = false;
   const uint16_t expect_len = sizeof(vehicle_control_buff);
   for (int retry = 0; retry < 3 && !data_valid; retry++) {
@@ -925,7 +957,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
       data_valid = true;
 
       // 这里只清理已消费的协议 ID，uart_data 本体可能还会被别处使用
-      // 避免同一 protocol_id 被重复消费
+      // 避免同一 protocol_id 被重复消
       uart_protocol_id = 0;
     }
     OS_EXIT_CRITICAL();
@@ -947,7 +979,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
     
     bool data_abnormal = false;
     
-    // 检查当前里程是否异常
+    // 检查当前里程是否异
     if (new_current_mileage > last_current_mileage &&
         (new_current_mileage - last_current_mileage) > MAX_CURRENT_MILEAGE_DELTA) {
       log_info("vehicle_control_timer: abnormal current_mileage %u -> %u\n", 
@@ -955,7 +987,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
       data_abnormal = true;
     }
     
-    // 检查总里程是否异常
+    // 检查总里程是否异
     if (new_total_mileage > last_total_mileage &&
         (new_total_mileage - last_total_mileage) > MAX_TOTAL_MILEAGE_DELTA) {
       log_info("vehicle_control_timer: abnormal total_mileage %u -> %u\n", 
@@ -963,7 +995,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
       data_abnormal = true;
     }
     
-    // 检查电量是否异常
+    // 检查电量是否异
     if ((new_battery_level > last_battery_level &&
          (new_battery_level - last_battery_level) > MAX_BATTERY_LEVEL_DELTA) ||
         (new_battery_level < last_battery_level &&
@@ -973,7 +1005,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
       data_abnormal = true;
     }
     
-    // 检查续航是否异常
+    // 检查续航是否异
     if ((new_endurance > last_endurance &&
          (new_endurance - last_endurance) > MAX_ENDURANCE_DELTA) ||
         (new_endurance < last_endurance &&
@@ -987,14 +1019,14 @@ uart1_send_toMCU(0x0012, NULL, 0);
       log_info("vehicle_control_timer: abnormal data detected, skip update\n");
       data_valid = false;
     } else {
-      // 记录本次有效数据作为历史值
+      // 记录本次有效数据作为历史
       last_current_mileage = new_current_mileage;
       last_total_mileage = new_total_mileage;
       last_battery_level = new_battery_level;
       last_endurance = new_endurance;
     }
   } else if (data_valid && first_update) {
-    // 首次更新时直接采用当前数据，并初始化历史值
+    // 首次更新时直接采用当前数据，并初始化历史
     last_current_mileage = (vehicle_control_buff[1] << 24) |
                            (vehicle_control_buff[2] << 16) |
                            (vehicle_control_buff[3] << 8) |
@@ -1053,7 +1085,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
   // 更新 GSM 状态
   vehicle_status.gsm_status = vehicle_control_buff[17]; // GSM 状态
 
-  // 组协议结构
+  // 组协议结果
   fill_send_protocl(0x0012, vehicle_control_buff, vehicle_control_len);
 
   uint8_t f7f1_send_data[269] = {0};
@@ -1074,7 +1106,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
   } else {
     log_info("vehicle_control_timer: encrypt len overflow %d\n", encrypt_len);
   }
-  /* 统一走 le_multi_smartbox_module 分发，由内部判断是否有订阅者 */
+  /* 统一le_multi_smartbox_module 分发，由内部判断是否有订阅*/
   le_multi_dispatch_recieve_callback(0, buffer, f7f1_len);
 
   if (le_multi_app_send_user_data_check(f7f1_len)) {
@@ -1090,7 +1122,7 @@ uart1_send_toMCU(0x0012, NULL, 0);
   }
 }
 
-// 启动定时器
+// 启动定时
 void vehicle_control_timer_start(u32 interval_ms) {
   if (vehicle_control_timer_handle) {
     log_info("vehicle_control_timer: already running\n");
@@ -1104,7 +1136,7 @@ void vehicle_control_timer_start(u32 interval_ms) {
   vehicle_control_timer_enabled = 1;
 }
 
-// 停止定时器
+// 停止定时
 void vehicle_control_timer_stop(void) {
   if (vehicle_control_timer_handle) {
     log_info("vehicle_control_timer: stopping\n");
@@ -1132,7 +1164,7 @@ bool set_configuration(uint16_t protocol_id) {
     return false;
   }
   set_data[0] = content_data[0];
-  // 将配置参数透传给 MCU
+  // 将配置参数透传向 MCU
   uart1_send_toMCU(protocol_id, set_data, 1);
   printf("f5f1_configuration");
   if (uart_data != NULL && data_length > 0) {
@@ -1157,7 +1189,7 @@ int fill_MCU_SOC_protocl(uint8_t *data, uint16_t len, uint16_t handle) {
     log_info("data len %d is too short", len);
     return 0;
   }
-  // 这里先处理 S0 协议；该类数据不需要解密，收到后直接解析
+  // 这里先处理S0 协议；该类数据不需要解密，收到后直接解
   switch (handle) {
   // S0 通道 - 设备基础信息通道(f5f0/f5f1)
   case ATT_CHARACTERISTIC_0000f5f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
@@ -1187,7 +1219,7 @@ int fill_MCU_SOC_protocl(uint8_t *data, uint16_t len, uint16_t handle) {
 }
 
 /**
- * @brief  组装发送协议结构
+ * @brief  组装发送协议结果
  * 
  * @param cmd {协议命令}
  * @param data {协议负载}
@@ -1197,7 +1229,7 @@ void fill_send_protocl(uint16_t cmd, uint8_t *data, uint16_t len) {
   send_protocl.head_prefix = 0xFE;
   send_protocl.f_total = 0x01;
   send_protocl.f_num = 0x01;
-  /* len 字段按协议定义，仅表示 payload 长度，不包含包头、CRC、包尾等固定字段 */
+  /* len 字段按协议定义，仅表payload 长度，不包含包头、CRC、包尾等固定字段 */
   send_protocl.len = len;
   send_protocl.cmd = cmd;
   send_protocl.data = data;
@@ -1210,40 +1242,40 @@ void fill_send_protocl(uint16_t cmd, uint8_t *data, uint16_t len) {
   // 包头 (1 字节)
   crc_packet[packet_length++] = send_protocl.head_prefix;
 
-  // 总帧数 (2 字节，大端)
+  // 总帧数(2 字节，大端
   crc_packet[packet_length++] = (send_protocl.f_total >> 8) & 0xFF;
   crc_packet[packet_length++] = send_protocl.f_total & 0xFF;
 
-  // 当前帧号 (2 字节，大端)
+  // 当前帧号 (2 字节，大端
   crc_packet[packet_length++] = (send_protocl.f_num >> 8) & 0xFF;
   crc_packet[packet_length++] = send_protocl.f_num & 0xFF;
 
-  // 数据长度字段 (2 字节，大端)
+  // 数据长度字段 (2 字节，大端
   crc_packet[packet_length++] = (send_protocl.len >> 8) & 0xFF;
   crc_packet[packet_length++] = send_protocl.len & 0xFF;
-  printf("发送数据长度: %d\n", send_protocl.len);
+  // printf("CRC 长度 %d\n", send_protocl.len);
 
-  // 协议 ID (2 字节，大端)
+  // 协议 ID (2 字节，大端
   crc_packet[packet_length++] = (send_protocl.cmd >> 8) & 0xFF;
   crc_packet[packet_length++] = send_protocl.cmd & 0xFF;
 
-  // 协议负载（可变长）
+  // 协议负载（可变长度
   if (send_protocl.data && len > 0) {
     memcpy(&crc_packet[packet_length], send_protocl.data, len);
     packet_length += len;
   }
 
-  // 包尾 (2 字节，大端)
+  // 包尾 (2 字节，大端
   crc_packet[packet_length++] = (send_protocl.tail_prefix >> 8) & 0xFF;
   crc_packet[packet_length++] = send_protocl.tail_prefix & 0xFF;
 
-  // 计算并写入 CRC
+  // 计算并写CRC
   uint8_t crc_data[2];
   // size_t crc_data_length = build_crc_data(crc_packet, packet_length,
   // crc_data);
   log_info("packetLength: %zu", packet_length);
 
-  // CRC16 校验值
+  // CRC16 校验
   calculateCRC16(crc_packet, packet_length, crc_data);
   send_protocl.crc16 = (crc_data[1] << 8) | crc_data[0];
   log_info("CRC calculated: 0x%04X", send_protocl.crc16);
@@ -1277,33 +1309,33 @@ uint16_t convert_protocol_to_buffer(t_ble_protocl *protocol,uint8_t *buffer,uint
   // 包头 (1 字节)
   buffer[offset++] = protocol->head_prefix;
 
-  // 总帧数 (2 字节，大端)
+  // 总帧数(2 字节，大端
   buffer[offset++] = (protocol->f_total >> 8) & 0xFF;
   buffer[offset++] = protocol->f_total & 0xFF;
 
-  // 当前帧号 (2 字节，大端)
+  // 当前帧号 (2 字节，大端
   buffer[offset++] = (protocol->f_num >> 8) & 0xFF;
   buffer[offset++] = protocol->f_num & 0xFF;
 
-  // 数据长度字段 (2 字节，大端)
+  // 数据长度字段 (2 字节，大端
   buffer[offset++] = (protocol->len >> 8) & 0xFF;
   buffer[offset++] = protocol->len & 0xFF;
 
-  // 协议 ID (2 字节，大端)
+  // 协议 ID (2 字节，大端
   buffer[offset++] = (protocol->cmd >> 8) & 0xFF;
   buffer[offset++] = protocol->cmd & 0xFF;
 
-  // 协议负载（可变长）
+  // 协议负载（可变长度
   if (protocol->data && protocol->len > 0) {
     memcpy(&buffer[offset], protocol->data, protocol->len);
     offset += protocol->len;
   }
 
-  // CRC16 校验值 (2 字节，高字节在前)
+  // CRC16 校验(2 字节，高字节在前)
   buffer[offset++] = (protocol->crc16 >> 8) & 0xFF;
   buffer[offset++] = protocol->crc16 & 0xFF;
 
-  // 包尾 (2 字节，大端)
+  // 包尾 (2 字节，大端
   buffer[offset++] = (protocol->tail_prefix >> 8) & 0xFF;
   buffer[offset++] = protocol->tail_prefix & 0xFF;
 
@@ -1322,7 +1354,7 @@ int fill_recv_protocl(uint8_t *data)
     return 0;
   }
 
-  // 检查起始字节 (0xFE)
+  // 检查起始字节(0xFE)
   if (data[0] != 0xFE) {
     log_info("fill_recv_protocl: invalid start byte 0x%02X, expected 0xFE",
              data[0]);
@@ -1330,7 +1362,7 @@ int fill_recv_protocl(uint8_t *data)
   }
 
   // 读取整包长度，从长度字段获取总长度
-  uint16_t packet_length = (data[5] << 8) | data[6]; // 第 5~6 字节为长度字段
+  uint16_t packet_length = (data[5] << 8) | data[6]; // 5~6 字节为长度字节
   // 检查结束符 (0x0D 0x0A)
   if (data[packet_length - 2] != 0x0D || data[packet_length - 1] != 0x0A) {
     log_info("fill_recv_protocl: invalid end bytes 0x%02X 0x%02X, expected "
@@ -1339,17 +1371,17 @@ int fill_recv_protocl(uint8_t *data)
     return false;
   }
 
-  // 读取包内携带的 CRC 值，CRC 位于结束符前两个字节
+  // 读取包内携带CRC 值，CRC 位于结束符前两个字节
   uint8_t received_crc_low = data[packet_length - 4];
   uint8_t received_crc_high = data[packet_length - 3];
 
-  // CRC 校验：从起始字节到 CRC 字段前为止参与计算
-  // 计算长度 = 整包长度 - 4（去掉 CRC 两字节和结束符两字节）
+  // CRC 校验：从起始字节CRC 字段前为止参与计
+  // 计算长度 = 整包长度 - 4（去CRC 两字节和结束符两字节
   uint16_t crc_calc_length = packet_length - 4;
 
-  // 计算 CRC 时，从包头开始拷贝到 CRC 字段前
+  // 计算 CRC 时，从包头开始拷贝到 CRC 字段
   uint8_t calculated_crc[2];
-  // 计算时把包尾 0x0D 0x0A 补回去
+  // 计算时把包尾 0x0D 0x0A 补回
   uint16_t crc_buffer_len = (uint16_t)(crc_calc_length + 2);
   uint8_t *crc_buffer = malloc(crc_buffer_len);
   if (crc_buffer == NULL) {
@@ -1357,11 +1389,11 @@ int fill_recv_protocl(uint8_t *data)
     return 0;
   }
 
-  // 拷贝有效数据部分，排除 CRC 字段
+  // 拷贝有效数据部分，排CRC 字段
   for (uint16_t i = 0; i < crc_calc_length; i++) {
     crc_buffer[i] = data[i];
   }
-  // 追加结束符 (0x0D 0x0A) 参与 CRC 计算
+  // 追加结束(0x0D 0x0A) 参与 CRC 计算
   crc_buffer[crc_calc_length] = 0x0D;
   crc_buffer[crc_calc_length + 1] = 0x0A;
 
@@ -1385,7 +1417,7 @@ int fill_recv_protocl(uint8_t *data)
   frame_number = (data[3] << 8) | data[4]; // 当前帧号
   protocol_id = (data[7] << 8) | data[8];  // 协议 ID
 
-  // 计算协议负载长度：整包长度 - 固定字段长度(13 字节)
+  // 计算协议负载长度：整包长度- 固定字段长度(13 字节)
   content_length = packet_length - 13;
   // 协议负载起始位置
   content_data = &data[9]; // 协议负载起始位置
@@ -1404,7 +1436,7 @@ int fill_recv_protocl(uint8_t *data)
     log_info_hexdump(content_data, content_length);
   }
 
-  // content_data 已直接指向 data 内部负载区，无需再次拷贝
+  // content_data 已直接指data 内部负载区，无需再次拷贝
   free(crc_buffer);
   return 1;
 }
@@ -1419,11 +1451,11 @@ int fill_recv_protocl(uint8_t *data)
  * @return false 解析失败
  *
  * @note
- * 先根据 handle 判断是否为 S0 / S1 协议；S0 直接解析，S1 需要先解密再解析。
+ * 先根handle 判断是否S0 / S1 协议；S0 直接解析，S1 需要先解密再解析
  */
 int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
 {
-     // 先根据通道区分 S0 / S1；S0 不加密，S1 需要先解密再进入协议解析
+     // 先根据通道区分 S0 / S1；S0 不加密，S1 需要先解密再进入协议解
   switch (handle) {
   // S0 通道 - 设备基础信息通道(f5f0/f5f1)
   case ATT_CHARACTERISTIC_0000f5f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
@@ -1453,12 +1485,12 @@ int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
     }
 
     break;
-  // S1 通道 - 中控与 APP 的加密通信通道(f7f0/f7f2)
+  // S1 通道 - 中控给 APP 的加密通信通道(f7f0/f7f2)
   case ATT_CHARACTERISTIC_0000f7f2_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
     /*
-     * f7f2 有两种情况：一种是已经解密后的明文，首字节通常为 0xFE；
-     * 之前直接先走 fill_recv_protocl(data) 会因为明文/密文混用，触发 invalid start byte；
-     * 这里改为：若首字节就是 0xFE，则直接按明文解析，否则先解密后再解析。
+     * f7f2 有两种情况：一种是已经解密后的明文，首字节通常 0xFE
+     * 之前直接先走 fill_recv_protocl(data) 会因为明密文混用，触invalid start byte
+     * 这里改为：若首字节就 0xFE，则直接按明文解析，否则先解密后再解析
      */
     printf("join_f7f2");
     if (data[0] == 0xFE) {
@@ -1470,10 +1502,10 @@ int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
     // 密文场景下需要先解密，再继续协议解析
     /* btstack 栈空间较小，AES 相关对象放在静态区，避免栈占用过大 */
     static AES_KEY aes_key;
-    static uint8_t decrypted_data[269]; // 解密后的协议数据缓冲区
+    static uint8_t decrypted_data[269]; // 解密后的协议数据缓冲突
     uint16_t decrypted_len = sizeof(decrypted_data);
 
-    // 设置解密密钥，优先使用 MCU 通过 0x00F7 下发并保存到 syscfg 的密钥
+    // 设置解密密钥，优先使向 MCU 通过 0x00F7 下发并保存到 syscfg 的密
     {
       u8 keybuf[16];
       const u8 *key = fill_protocol_get_aes_key(keybuf);
@@ -1482,15 +1514,15 @@ int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
     // 尝试 PKCS7 解密
     int aes_ret = aes_decrypt_pkcs(&aes_key, data, len, decrypted_data, &decrypted_len);
     if (aes_ret != 0) {
-      /* 部分手机使用“纯 AES-ECB 分组”且长度刚好是 16 字节对齐，PKCS7 校验会报 padd_num error。
-         这种情况下退回到逐块 ECB 解密，兼容旧手机侧实现。 */
+      /* 部分手机使用“纯 AES-ECB 分组”且长度刚好16 字节对齐，PKCS7 校验会报 padd_num error
+         这种情况下退回到逐块 ECB 解密，兼容旧手机侧实现*/
       decrypted_len = len;
       for (uint16_t i = 0; i < len / AES_BLOCK_SIZE; i++) {
         aes_decrypt(&aes_key, &data[i * AES_BLOCK_SIZE], &decrypted_data[i * AES_BLOCK_SIZE]);
       }
     }
     printf("decrypted_data:");
-    /* btstack 栈线程里限制 hexdump 长度，避免日志过长影响时序 */
+    /* btstack 栈线程里限制 hexdump 长度，避免日志过长影响时*/
     {
       uint16_t dump_len = decrypted_len;
       if (dump_len > 32) {
@@ -1498,7 +1530,7 @@ int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
       }
       log_info_hexdump(decrypted_data, dump_len);
     }
-    // 使用解密后的数据继续走协议解析
+    // 使用解密后的数据继续走协议解
     if (fill_recv_protocl(decrypted_data)) {
       f7f2_ID_dispose(protocol_id);
     }
@@ -1514,8 +1546,8 @@ int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
 }
 
 static void get_vehicle_set_info_post(uint16_t protocol_id) {
-  /* 之前这里同时做 app_core 异步投递和直接回调，容易造成重复处理。
-   * 现在保留当前路径直接执行，额外异步投递一次用于兼容旧流程，但以当前执行结果为准。 */
+  /* 之前这里同时app_core 异步投递和直接回调，容易造成重复处理
+   * 现在保留当前路径直接执行，额外异步投递一次用于兼容旧流程，但以当前执行结果为准*/
 
   get_vehice_set_infromation_instruct(protocol_id);
 
@@ -1660,7 +1692,7 @@ void f5f1_ID_dispose(uint16_t protocol_id)
     }
     set_data[0] = content_data[0];
     set_data[1] = content_data[1];
-    // 将配置参数透传给 MCU
+    // 将配置参数透传向 MCU
     uart1_send_toMCU(protocol_id, set_data, 2);
     printf("f5f1_configuration");
     if (uart_data != NULL && data_length > 0) {
@@ -1768,7 +1800,7 @@ void send_vehicle_set_param_instruct(uint16_t protocol_id, uint8_t *instruct) {
     
     if (param_id == APP_FUNC_CODE_PARAID_OVER_TIME_LOCK) {
       log_info("send_vehicle_set_param_instruct: OVER_TIME_LOCK setting detected, value=%d\n", param_value);
-      // 确保参数值在有效范围内
+      // 确保参数值在有效范围
       if (param_value > 2) {
         log_info("send_vehicle_set_param_instruct: OVER_TIME_LOCK value %d out of range, clamping to 2\n", param_value);
         content_data[2] = 2;
@@ -1820,7 +1852,7 @@ void send_vehicle_set_param_instruct(uint16_t protocol_id, uint8_t *instruct) {
     const u8 *key = fill_protocol_get_aes_key(keybuf);
     aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
   }
-  // 开始加密
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_code, send_code_len, encrypt_data,
                    &encrypt_len);
   printf("encrypt_data 加密后的数据:");
@@ -1837,7 +1869,7 @@ void send_vehicle_set_param_instruct(uint16_t protocol_id, uint8_t *instruct) {
   } else {
     memcpy(send_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
   log_info_hexdump(send_code, encrypt_len);
   le_multi_dispatch_recieve_callback(0, send_code, encrypt_len);
 
@@ -1868,7 +1900,7 @@ void f7f2_ID_dispose(uint16_t protocol_id)
     v5_1_function_control(instruct, protocol_id);
     break;
   case vehicle_state: // 获取车辆状态
-    /* code */        // 这里由 f7f2 的 write_callback 周期性触发
+    /* code */        // 这里f7f2 由 write_callback 周期性触
     break;
   case vehicle_set_param: // 设置车辆参数
     /* code */
@@ -1930,13 +1962,13 @@ void f7f2_ID_dispose(uint16_t protocol_id)
     /* code */  
     break;
   case get_vehice_set_infromation: // 获取车辆设置信息
-      /* 该协议 payload 为空，整条链路包含 UART 等待、AES 和 notify，统一放到 app_core 执行 */
+      /* 该协议payload 为空，整条链路包含 UART 等待、AES 含 notify，统一放到 app_core 执行 */
       get_vehicle_set_info_post(protocol_id);
     break;
   case get_vehice_music_infromation: // 获取车辆音效信息
     get_vehice_music_infromation_instruct(protocol_id);
     break;
-  case select_tone: // 选择音效：默认或自定义
+  case select_tone: // 选择音效：默认或自定
     select_tone_instruct(protocol_id);
     break;
   case set_vehice_music: // 设置音效信息
@@ -1966,13 +1998,13 @@ void f7f2_ID_dispose(uint16_t protocol_id)
 }
 /**
  * @brief 车辆控制参数设置指令 V5.2
- * 数据格式：3 byte，2 byte->code，1 byte->parm
+ * 数据格式 byte byte->code byte->parm
  * @param content_data {placeholder} 车辆控制参数设置指令内容
  */
 void param_set_v5_2_instruct(uint16_t portocol_id, uint8_t *content_data) {
   // 解析 content_data 参数
   uint8_t parm_id = 0;
-  // 第 6 字节 HEX 转为十进制参数
+  // 6 字节 HEX 转为十进制参
   printf("content_data1:%d", content_data[1]);
   printf("content_data2:%d", content_data[2]);
   parm_id = content_data[1];
@@ -1980,115 +2012,115 @@ void param_set_v5_2_instruct(uint16_t portocol_id, uint8_t *content_data) {
   switch (parm_id) {
   case CFG_VEHICLE_PASSWORD_UNLOCK: // 设置车辆密码解锁
     /* code */
-    printf("匹配到 CFG_VEHICLE_PASSWORD_UNLOCK\n");
+    printf("匹配置CFG_VEHICLE_PASSWORD_UNLOCK\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_AUTO_LOCK: // 自动落锁
-    printf("匹配到 APP_FUNC_CODE_PARAID_AUTO_LOCK\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_AUTO_LOCK\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_OVER_TIME_LOCK: // 超时落锁
-    printf("匹配到 APP_FUNC_CODE_PARAID_OVER_TIME_LOCK\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_OVER_TIME_LOCK\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_AUTO_P: // 自动 P 档
-    printf("匹配到 APP_FUNC_CODE_PARAID_AUTO_P\n");
+  case APP_FUNC_CODE_PARAID_AUTO_P: // 自动 P 
+    printf("匹配给 APP_FUNC_CODE_PARAID_AUTO_P\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_SIDE_PROP: // 边撑感应
-    printf("匹配到 APP_FUNC_CODE_PARAID_SIDE_PROP\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_SIDE_PROP\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_CUSHION: // 坐垫感应
-    printf("匹配到 APP_FUNC_CODE_PARAID_CUSHION\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_CUSHION\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_DELAY_HEADLIGHT: // 延时大灯
-    printf("匹配到 APP_FUNC_CODE_PARAID_DELAY_HEADLIGHT\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_DELAY_HEADLIGHT\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_SENSE_HEADLIGHT: // 感应大灯
-    printf("匹配到 APP_FUNC_CODE_PARAID_SENSE_HEADLIGHT\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_SENSE_HEADLIGHT\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_NFC: // NFC 开关
-    printf("匹配到 APP_FUNC_CODE_PARAID_NFC\n");
+  case APP_FUNC_CODE_PARAID_NFC: // NFC 开启
+    printf("匹配给 APP_FUNC_CODE_PARAID_NFC\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_SOUND: // 音效开关
-    printf("匹配到 APP_FUNC_CODE_PARAID_SOUND\n");
+  case APP_FUNC_CODE_PARAID_SOUND: // 音效开启
+    printf("匹配给 APP_FUNC_CODE_PARAID_SOUND\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_HID_DISTANCE: // 无感解锁距离
-    printf("匹配到 APP_FUNC_CODE_PARAID_HID_DISTANCE\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_HID_DISTANCE\n");
     APP_FUNC_CODE_PARAID_HID_UNLOCK_instruct(portocol_id, content_data);
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_CRUISE: // 定速巡航
-    printf("匹配到 APP_FUNC_CODE_PARAID_CRUISE\n");
+  case APP_FUNC_CODE_PARAID_CRUISE: // 定速巡
+    printf("匹配给 APP_FUNC_CODE_PARAID_CRUISE\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_ASSIST: // 辅助推行
-    printf("匹配到 APP_FUNC_CODE_PARAID_ASSIST\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_ASSIST\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_ASTERN: // 倒车辅助
-    printf("匹配到 APP_FUNC_CODE_PARAID_ASTERN\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_ASTERN\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_HID_UNLOCK: // 无感解锁
-    printf("匹配到 APP_FUNC_CODE_PARAID_HID_UNLOCK\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_HID_UNLOCK\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     Seamless_Unlocking(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_AUTO_LOCK_TIME: // 自动落锁时间
-    printf("匹配到 APP_FUNC_CODE_PARAID_AUTO_LOCK_TIME\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_AUTO_LOCK_TIME\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_OVER_TIME_LOCK_TIME: // 超时落锁时间
-    printf("匹配到 APP_FUNC_CODE_PARAID_OVER_TIME_LOCK_TIME\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_OVER_TIME_LOCK_TIME\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
 
   case APP_FUNC_CODE_PARAID_VOLUME: // 音量设置
-    printf("匹配到 APP_FUNC_CODE_PARAID_VOLUME\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_VOLUME\n");
     set_volume_instruct(portocol_id);
 
     break;
-  case APP_FUNC_CODE_PARAID_ALARM_SHAKE: // 震动报警开关
-    printf("匹配到 APP_FUNC_CODE_PARAID_ALARM_SHAKE\n");
+  case APP_FUNC_CODE_PARAID_ALARM_SHAKE: // 震动报警开启
+    printf("匹配给 APP_FUNC_CODE_PARAID_ALARM_SHAKE\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_ALARM_DUMP: // 倾倒报警
-    printf("匹配到 APP_FUNC_CODE_PARAID_ALARM_DUMP\n");
+  case APP_FUNC_CODE_PARAID_ALARM_DUMP: // 倾倒报
+    printf("匹配给 APP_FUNC_CODE_PARAID_ALARM_DUMP\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_ALARM_MOVE: // 移动报警
-    printf("匹配到 APP_FUNC_CODE_PARAID_ALARM_MOVE\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_ALARM_MOVE\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_ALARM_SHAKE_SENSE: // 震动报警灵敏度
-    printf("匹配到 APP_FUNC_CODE_PARAID_ALARM_SHAKE_SENSE\n");
+  case APP_FUNC_CODE_PARAID_ALARM_SHAKE_SENSE: // 震动报警灵敏
+    printf("匹配给 APP_FUNC_CODE_PARAID_ALARM_SHAKE_SENSE\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_FEST_EFFECT: // 节日音效
-    printf("匹配到 APP_FUNC_CODE_PARAID_FEST_EFFECT\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_FEST_EFFECT\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_FACTORY_RESET: // 恢复出厂
-    printf("匹配到 APP_FUNC_CODE_PARAID_FACTORY_RESET\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_FACTORY_RESET\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_TCS: // 牵引力控制
-    printf("匹配到 APP_FUNC_CODE_PARAID_TCS\n");
+  case APP_FUNC_CODE_PARAID_TCS: // 牵引力控
+    printf("匹配给 APP_FUNC_CODE_PARAID_TCS\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
-  case APP_FUNC_CODE_PARAID_ABS: // 防抱死刹车
-    printf("匹配到 APP_FUNC_CODE_PARAID_ABS\n");
+  case APP_FUNC_CODE_PARAID_ABS: // 防抱死刹
+    printf("匹配给 APP_FUNC_CODE_PARAID_ABS\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   case APP_FUNC_CODE_PARAID_HHC: // 坡道驻车
-    printf("匹配到 APP_FUNC_CODE_PARAID_HHC\n");
+    printf("匹配给 APP_FUNC_CODE_PARAID_HHC\n");
     send_vehicle_set_param_instruct(portocol_id, content_data);
     break;
   default:
@@ -2116,7 +2148,7 @@ static void reply_power_state_delay_cb(void *priv) {
   }
   g_power_state_reply_ctx.pending = 0;
   
-  log_info("延时发送电门状态回包: %d -> %d\n", 
+  log_info("延时发送电门状态回包 %d -> %d\n", 
            g_power_state_reply_ctx.original_state, 
            g_power_state_reply_ctx.new_state);
   
@@ -2140,7 +2172,7 @@ static void reply_power_state_delay_cb(void *priv) {
     if (le_multi_app_send_user_data(
             ATT_CHARACTERISTIC_0000f7f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
             f7f1_send_data, f7f1_len, ATT_OP_NOTIFY) == APP_BLE_NO_ERROR) {
-      log_info("电门状态回包成功: %d -> %d\n", 
+      log_info("电门状态回包成 %d -> %d\n", 
                g_power_state_reply_ctx.original_state, 
                g_power_state_reply_ctx.new_state);
     } else {
@@ -2163,13 +2195,13 @@ static void reply_power_state_change_to_app(uint16_t instruct, uint16_t protocol
   (void)instruct;
   (void)protocol_id;
   
-  log_info("电门状态变化：原状态=%d，新状态=%d（延时200ms回复）\n", original_power_state, new_power_state);
+  log_info(": %d -> %d\n", original_power_state, new_power_state);
   
-  // 复制 0x0012 状态缓存
+  // 复制 0x0012 状态缓
   memcpy(g_power_state_reply_ctx.reply_buff, vehicle_control_buff, sizeof(vehicle_control_buff));
   
   // 标记为回复包而不是主动上报
-  g_power_state_reply_ctx.reply_buff[0] = 0x00; // 0=回复，1=主动上报
+  g_power_state_reply_ctx.reply_buff[0] = 0x00; // 0=回恢复=主动上报
   
   // 更新电门状态为新状态
   g_power_state_reply_ctx.reply_buff[13] = new_power_state;
@@ -2182,7 +2214,7 @@ static void reply_power_state_change_to_app(uint16_t instruct, uint16_t protocol
   g_power_state_reply_ctx.new_state = new_power_state;
   g_power_state_reply_ctx.pending = 1;
   
-  // 延时 200ms 发送，避免与 0x00F1 回复同时占用 BLE buffer
+  // 延时 200ms 发送，避免 0x00F1 回复同时占用 BLE buffer
   sys_timeout_add(NULL, reply_power_state_delay_cb, 200);
 }
 
@@ -2199,13 +2231,13 @@ void v5_1_function_control(uint16_t instruct, uint16_t protocol_id) {
   }
    bool instruct_valid = false;
   switch (instruct) {
-  case APP_FUNC_CODE_EBIKE_UNLOCK: // 车辆解锁并上电
+  case APP_FUNC_CODE_EBIKE_UNLOCK: // 车辆解锁并上报
   {
     log_info("车辆控制指令（上电）\n");
     // 1. 记录原始电门状态
     uint8_t original_power_state = vehicle_status.power_state;
     
-    // 2. 下发控制指令到 MCU，当前 payload 很短，直接走 UART 透传
+    // 2. 下发控制指令向 MCU，当payload 很短，直接走 UART 透传
     log_info("发送给 MCU: protocol=0x%04x len=%u data=%d,%d", protocol_id, content_length, content_data[0], content_data[1]);
     if (content_length) {
       log_info_hexdump(content_data, content_length);
@@ -2219,19 +2251,19 @@ void v5_1_function_control(uint16_t instruct, uint16_t protocol_id) {
     g_ble_skip_uart_forward_once = 1;
     send_data_to_ble_post(instruct, protocol_id);
     
-    // 3. 无论 MCU 是否及时回 0x0012，都先给 APP 回复新的电门状态
-    // 上电后的状态应为 0x01
+    // 3. 无论 MCU 是否及时 0x0012，都先给 APP 回复新的电门状态
+    // 上电后的状态应 0x01
     uint8_t new_power_state = 0x01;
     reply_power_state_change_to_app(instruct, protocol_id, original_power_state, new_power_state);
   }
     break;
-  case APP_FUNC_CODE_EBIKE_LOCK: // 车辆落锁并下电
+  case APP_FUNC_CODE_EBIKE_LOCK: // 车辆落锁并下发
   {
     log_info("车辆控制指令（下电）\n");
     // 1. 记录原始电门状态
     uint8_t original_power_state = vehicle_status.power_state;
     
-    // 2. 下发控制指令到 MCU，当前 payload 很短，直接走 UART 透传
+    // 2. 下发控制指令向 MCU，当payload 很短，直接走 UART 透传
     log_info("发送给 MCU: protocol=0x%04x len=%u data=%d,%d", protocol_id, content_length, content_data[0], content_data[1]);
     if (content_length) {
       log_info_hexdump(content_data, content_length);
@@ -2245,8 +2277,8 @@ void v5_1_function_control(uint16_t instruct, uint16_t protocol_id) {
     g_ble_skip_uart_forward_once = 1;
     send_data_to_ble_post(instruct, protocol_id);
     
-    // 3. 无论 MCU 是否及时回 0x0012，都先给 APP 回复新的电门状态
-    // 下电后的状态应为 0x00
+    // 3. 无论 MCU 是否及时 0x0012，都先给 APP 回复新的电门状态
+    // 下电后的状态应 0x00
     uint8_t new_power_state = 0x00;
     reply_power_state_change_to_app(instruct, protocol_id, original_power_state, new_power_state);
   }
@@ -2268,8 +2300,8 @@ void v5_1_function_control(uint16_t instruct, uint16_t protocol_id) {
     break;
   case APP_FUNC_CODE_FIND_EBIKE: // 寻车
     log_info("寻车指令\n");
-    /* 寻车控制通常只有一个短 payload，send_data_to_ble_post 可能不会帮忙透传到 MCU。
-     * 这里直接发给 MCU，优先保证寻车指令可靠执行，再走 BLE 回包。
+    /* 寻车控制通常只有一个短 payload，send_data_to_ble_post 可能不会帮忙透传向 MCU
+     * 这里直接发给 MCU，优先保证寻车指令可靠执行，再走 BLE 回包
      */
     log_info("发送给 MCU: protocol=0x%04x len=%u data=%d,%d", protocol_id, content_length, content_data[0], content_data[1]);
     if (content_length) {
@@ -2356,8 +2388,8 @@ static void send_data_to_ble_post(uint16_t instruct, uint16_t protocol_id) {
   int r = os_taskq_post_type("app_core", Q_CALLBACK, 3, msg);
   if (r) {
     if (r == OS_Q_FULL) {
-      /* app_core 消息队列满时，不要直接丢弃 BLE 回包流程。
-       * 这里退化为当前线程直接执行 send_data_to_ble()，避免控制指令丢失。
+      /* app_core 消息队列满时，不要直接丢BLE 回包流程
+       * 这里退化为当前线程直接执行 send_data_to_ble()，避免控制指令丢失
        */
       send_data_to_ble(g_ble_send_req.instruct, g_ble_send_req.protocol_id,
                        g_ble_send_req.payload, g_ble_send_req.payload_len);
@@ -2485,9 +2517,9 @@ static void ble_notify_try_send(fill_ble_notify_req_t *req, uint8_t from_can_sen
     return;
   }
 
-  /* 连接/重连后手机侧可能还没完成 CCC 配置，BLE buffer 满时也可能暂时发不出去。
-   * 这里不要直接丢包，否则 APP 会误以为已写成功但 SOC 没有真正发出通知。
-   * 处理方式是等待 buffer 可用后，通过 ATT_EVENT_CAN_SEND_NOW 再继续发送。
+  /* 连接/重连后手机侧可能还没完成 CCC 配置，BLE buffer 满时也可能暂时发不出去
+   * 这里不要直接丢包，否给 APP 会误以为已写成功SOC 没有真正发出通知
+   * 处理方式是等buffer 可用后，通过 ATT_EVENT_CAN_SEND_NOW 再继续发送
    */
   if (!le_multi_app_send_user_data_check(req->len)) {
     if (!from_can_send_now) {
@@ -2511,7 +2543,7 @@ static void ble_notify_try_send(fill_ble_notify_req_t *req, uint8_t from_can_sen
 #endif
   }
 
-  /* 即使本次发送失败，也要清 pending；如 CCC 未配好或链路已断，避免一直卡死。 */
+  /* 即使本次发送失败，也要pending；如 CCC 未配好或链路已断，避免一直卡死*/
   g_ble_notify_req_pending = 0;
   ble_notify_kick_queue();
 }
@@ -2558,8 +2590,8 @@ static void ble_reply_to_app_f7f1_post(uint16_t protocol_id, const uint8_t *payl
   int r = os_taskq_post_type("app_core", Q_CALLBACK, 3, msg);
   if (r) {
     if (r == OS_Q_FULL || r == 0x15) {
-      /* app_core 队列在高峰期可能塞满，但钥匙列表等 f7f1 回包仍需要尽量保证送达。
-       * 这里退回到当前上下文直接执行封包和 notify，由 btstack 继续调度发送。 */
+      /* app_core 队列在高峰期可能塞满，但钥匙列表f7f1 回包仍需要尽量保证送达
+       * 这里退回到当前上下文直接执行封包和 notify，由 btstack 继续调度发送*/
       ble_reply_to_app_f7f1_do(g_ble_reply_req.protocol_id, g_ble_reply_req.payload,
                               g_ble_reply_req.payload_len);
       g_ble_reply_req_pending = 0;
@@ -2633,20 +2665,20 @@ static void send_data_to_ble(uint16_t instruct, uint16_t protocol_id,
     uart1_send_toMCU(protocol_id, (uint8_t *)payload, payload_len);
   }
   uint8_t ret = 0;
-  uint8_t set_code_buffer[64] = {0x00, 0x00, 0x01};  // 默认回包：结果码 + 指令码 + 成功标志
+  uint8_t set_code_buffer[64] = {0x00, 0x00, 0x01};  // 默认回包：结果码 + 指令+ 成功标志
   set_code_buffer[0] = payload[0];
   set_code_buffer[1] = payload[1];
   // 注意：这里不依赖 uart_data 作为同步结果，MCU 回包是异步到达的
   // 对于开座桶、寻车等控制指令，这里先按成功路径回给 APP
-  // set_code_buffer[2] 默认填 0x01，表示本次控制成功
+  // set_code_buffer[2] 默认 0x01，表示本次控制成
   fill_send_protocl(protocol_id, set_code_buffer, 3);
-  /* 该函数在当前线程会用到较多临时数据，发送缓冲使用 static，避免栈占用过大。 */
+  /* 该函数在当前线程会用到较多临时数据，发送缓冲使用static，避免栈占用过大端*/
   static uint8_t send_code[269];
   memset(send_code, 0, sizeof(send_code));
   uint16_t send_code_len =
       convert_protocol_to_buffer(&send_protocl, send_code, 269);
 
-  // 对回包数据进行 AES 加密
+  // 对回包数据进AES 加密
   static AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
@@ -2655,7 +2687,7 @@ static void send_data_to_ble(uint16_t instruct, uint16_t protocol_id,
     const u8 *key = fill_protocol_get_aes_key(keybuf);
     aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
   }
-  // 开始加密
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_code, send_code_len, encrypt_data,
                    &encrypt_len);
 #if FILL_PROTOCOL_SEND_DBG
@@ -2675,7 +2707,7 @@ static void send_data_to_ble(uint16_t instruct, uint16_t protocol_id,
   }
 
 #if FILL_PROTOCOL_SEND_DBG
-  printf("最终发送数据:");
+  printf("最终发送数据");
   log_info_hexdump(send_code, encrypt_len);
 #endif
 
@@ -2684,23 +2716,23 @@ static void send_data_to_ble(uint16_t instruct, uint16_t protocol_id,
       send_code, encrypt_len, ATT_OP_NOTIFY, instruct);
   // 控制指令发送完成后，如涉及上下电，继续补发一次车辆状态给 APP
   if (payload_len >= 2 && payload[1] == 9) {
-    vehicle_control_timer_handler(); // 主动上报一次 0x0012 车辆状态，刷新 APP 显示
+    vehicle_control_timer_handler(); // 主动上报一 0x0012 车辆状态，刷新 APP 显示
     printf("车辆状态已刷新\n");
   }
   if (payload_len >= 2 && payload[1] == 8) {
-    vehicle_control_timer_handler(); // 主动上报一次 0x0012 车辆状态，刷新 APP 显示
+    vehicle_control_timer_handler(); // 主动上报一 0x0012 车辆状态，刷新 APP 显示
     printf("车辆状态已刷新\n");
   }
 }
 
 // ================================ 钥匙列表管理 ================================
-/* 记录最近一次发送 0x00FB 钥匙列表的时间，1 秒内避免重复回复 */
+/* 记录最近一次发送0x00FB 钥匙列表的时间，1 秒内避免重复回复 */
 static u32 g_last_send_key_list_time = 0;
 void send_ble_key_list(uint16_t protocol_id) {
   // 0x00FB 请求过于频繁时直接丢弃，避免重复回包
   if (protocol_id == 0x00FB) {
     u32 current_time = jiffies;
-    if (current_time - g_last_send_key_list_time < 100) { // 1 秒内不重复回复
+    if (current_time - g_last_send_key_list_time < 100) { // 1 秒内不重复回包
       log_info("[BLE] 00FB 协议发送过于频繁，已忽略\n");
       return;
     }
@@ -2709,16 +2741,16 @@ void send_ble_key_list(uint16_t protocol_id) {
 
   // uint8_t id_addr[6] = {0};save_MAC_address
   // ble_list_get_last_id_addr(id_addr);
-  // printf("获取最近绑定设备 MAC 地址: ");
+  // printf("获取最近绑定设MAC 地址: ");
   // printf_buf(id_addr, sizeof(id_addr));
-  // 检查 MAC 地址是否重复
+  // 检MAC 地址是否重复
   uint8_t ret;
   // ble_proto_ble_pair_req_Proc(NULL);
   static uint8_t key_list_buffer[269];
   memset(key_list_buffer, 0, sizeof(key_list_buffer));
   uint16_t offset = 0;
 
-  // 读取各类钥匙当前的可用数量
+  // 读取各类钥匙当前的可用数据
   uint8_t phone_ble_key_usable_num = 0;
   uint8_t ble_key_peripheral_usable_num = 0;
   uint8_t nfc_key_peripheral_usable_num = 0;
@@ -2732,8 +2764,8 @@ void send_ble_key_list(uint16_t protocol_id) {
   printf("ble_key_peripheral_usable_num: %d\n", ble_key_peripheral_usable_num);
   printf("nfc_key_peripheral_usable_num: %d\n", nfc_key_peripheral_usable_num);
 
-  /* 读取手机蓝牙钥匙（功能码 0x0013）
-   * 注意：不要完全依赖 CFG_PHONE_BLE_KEY_USABLE_NUM，直接遍历 3 个槽位更稳妥。
+  /* 读取手机蓝牙钥匙（功能码 0x0013
+   * 注意：不要完全依CFG_PHONE_BLE_KEY_USABLE_NUM，直接遍3 个槽位更稳妥
    */
   {
     uint32_t config_ids[] = {
@@ -2742,7 +2774,7 @@ void send_ble_key_list(uint16_t protocol_id) {
         CFG_PHONE_BLE_KEY_DELETE_ID_3,
     };
     const uint16_t slot_cnt = sizeof(config_ids) / sizeof(config_ids[0]);
-    uint8_t phone_ble_key_data[9] = {0}; // 3 字节配对码 + 6 字节 MAC 地址
+    uint8_t phone_ble_key_data[9] = {0}; // 3 字节配对+ 6 字节 MAC 地址
 
     for (uint16_t i = 0; i < slot_cnt; i++) {
       memset(phone_ble_key_data, 0, sizeof(phone_ble_key_data));
@@ -2762,25 +2794,25 @@ void send_ble_key_list(uint16_t protocol_id) {
     }
   }
 
-  // 读取蓝牙外设钥匙（功能码 0x0014）
+  // 读取蓝牙外设钥匙（功能码 0x0014
   if (ble_key_peripheral_usable_num > 0) {
-    // 读取第一个蓝牙外设钥匙
+    // 读取第一个蓝牙外设钥
     if (ble_key_peripheral_usable_num >= 1) {
       uint8_t ble_peripheral_data[28] = {0}; // 每次读取前先清空缓存
       ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_1, ble_peripheral_data, 28);
       if (ret > 0 && !is_all_zero(ble_peripheral_data, 6)) {
-        // 追加功能码（外设蓝牙钥匙）
+        // 追加功能码（外设蓝牙钥匙
         if (offset + 2 > sizeof(key_list_buffer)) {
           goto key_list_send;
         }
         fill_put_u16_be(key_list_buffer + offset, APP_FUNC_CODE_KEY_EXT_BLE_HID);
         offset += 2;
 
-        // 追加 MAC 地址（6 字节）
+        // 追加 MAC 地址 字节
         memcpy(key_list_buffer + offset, ble_peripheral_data, 6);
         offset += 6;
 
-        // 统计设备名称长度（从第 7 字节开始）
+        // 统计设备名称长度（从7 字节开始）
         uint8_t name_length = 0;
         for (int i = 6; i < 28; i++) {
           if (ble_peripheral_data[i] != 0) {
@@ -2790,10 +2822,10 @@ void send_ble_key_list(uint16_t protocol_id) {
           }
         }
 
-        // 写入设备名称长度（1 字节）
+        // 写入设备名称长度 字节
         key_list_buffer[offset++] = name_length;
 
-        // 写入设备名称（GBK 编码）
+        // 写入设备名称（GBK 编码
         if (name_length > 0) {
           memcpy(key_list_buffer + offset, ble_peripheral_data + 6,
                  name_length);
@@ -2808,7 +2840,7 @@ void send_ble_key_list(uint16_t protocol_id) {
       }
     }
 
-    // 读取第二个蓝牙外设钥匙
+    // 读取第二个蓝牙外设钥
     if (ble_key_peripheral_usable_num >= 2) {
       uint8_t ble_peripheral_data[28] = {0}; // 每次读取前先清空缓存
       ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_2, ble_peripheral_data, 28);
@@ -2843,7 +2875,7 @@ void send_ble_key_list(uint16_t protocol_id) {
       }
     }
 
-    // 读取第三个蓝牙外设钥匙
+    // 读取第三个蓝牙外设钥
     if (ble_key_peripheral_usable_num >= 3) {
       uint8_t ble_peripheral_data[28] = {0}; // 每次读取前先清空缓存
       ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_3, ble_peripheral_data, 28);
@@ -2878,7 +2910,7 @@ void send_ble_key_list(uint16_t protocol_id) {
       }
     }
 
-    // 读取第四个蓝牙外设钥匙
+    // 读取第四个蓝牙外设钥
     if (ble_key_peripheral_usable_num >= 4) {
       uint8_t ble_peripheral_data[28] = {0}; // 每次读取前先清空缓存
       ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_4, ble_peripheral_data, 28);
@@ -2914,11 +2946,11 @@ void send_ble_key_list(uint16_t protocol_id) {
     }
   }
 
-  // 读取 NFC 钥匙（功能码 0x0015）
+  // 读取 NFC 钥匙（功能码 0x0015
   if (nfc_key_peripheral_usable_num > 0) {
     uint8_t nfc_key_data[16] = {0}; // 16 字节 UID
 
-    // 读取第一个 NFC 钥匙
+    // 读取第一NFC 钥匙
     if (nfc_key_peripheral_usable_num >= 1) {
       ret = syscfg_read(CFG_NFC_KEY_PERIPHERAL_SEND_1, nfc_key_data, 16);
       if (ret > 0 && !is_all_zero(nfc_key_data, 16)) {
@@ -2932,7 +2964,7 @@ void send_ble_key_list(uint16_t protocol_id) {
         printf("NFC 钥匙 1\n");
       }
     }
-    // 读取第二个 NFC 钥匙
+    // 读取第二NFC 钥匙
     if (nfc_key_peripheral_usable_num >= 2) {
       ret = syscfg_read(CFG_NFC_KEY_PERIPHERAL_SEND_2, nfc_key_data, 16);
       if (ret > 0 && !is_all_zero(nfc_key_data, 16)) {
@@ -2947,7 +2979,7 @@ void send_ble_key_list(uint16_t protocol_id) {
       }
     }
 
-    // 读取第三个 NFC 钥匙
+    // 读取第三NFC 钥匙
     if (nfc_key_peripheral_usable_num >= 3) {
       ret = syscfg_read(CFG_NFC_KEY_PERIPHERAL_SEND_3, nfc_key_data, 16);
       if (ret > 0 && !is_all_zero(nfc_key_data, 16)) {
@@ -2962,7 +2994,7 @@ void send_ble_key_list(uint16_t protocol_id) {
       }
     }
 
-    // 读取第四个 NFC 钥匙
+    // 读取第四NFC 钥匙
     if (nfc_key_peripheral_usable_num >= 4) {
       ret = syscfg_read(CFG_NFC_KEY_PERIPHERAL_SEND_4, nfc_key_data, 16);
       if (ret > 0 && !is_all_zero(nfc_key_data, 16)) {
@@ -2978,7 +3010,7 @@ void send_ble_key_list(uint16_t protocol_id) {
     }
   }
 
-  // 读取密码钥匙（功能码 0x0016）
+  // 读取密码钥匙（功能码 0x0016
   {
     uint8_t password_data[4] = {0};
     ret = syscfg_read(CFG_VEHICLE_PASSWORD_UNLOCK, password_data, 4);
@@ -2988,7 +3020,7 @@ void send_ble_key_list(uint16_t protocol_id) {
       }
       fill_put_u16_be(key_list_buffer + offset, APP_FUNC_CODE_KEY_PASSWD);
       offset += 2;
-      // 按协议定义，密码使用 UINT8[4] 原样透传，不转 ASCII
+      // 按协议定义，密码使用 UINT8[4] 原样透传，不ASCII
       memcpy(key_list_buffer + offset, password_data, 4);
       offset += 4;
       printf("密码钥匙: %u%u%u%u\n", (unsigned)password_data[0], (unsigned)password_data[1],
@@ -3000,12 +3032,12 @@ void send_ble_key_list(uint16_t protocol_id) {
 
 key_list_send:
 
-  // 如果当前没有任何钥匙数据，则保持空列表返回；此阶段不再补默认项
+  // 如果当前没有任何钥匙数据，则保持空列表返回；此阶段不再补默认
   if (offset == 0) {
 
     printf("Added default phone ble key\n");
   }
-  /* 同步给 MCU，满足协议侧联动要求 */
+  /* 同步向 MCU，满足协议侧联动要求 */
   uart1_send_toMCU(protocol_id, key_list_buffer, offset);
 
   /* 回复 APP：通过 f7f1 notify 下发 */
@@ -3046,7 +3078,7 @@ void send_vehicle_password_unlock_instruct(uint16_t protocol_id) {
   } else {
     unlock_key_buffer[0] = 0x00;
   }
-  // 回填用户设置的密码内容
+  // 回填用户设置的密码内
   unlock_key_buffer[1] = content_data[0] - '0';
   unlock_key_buffer[2] = content_data[1] - '0';
   unlock_key_buffer[3] = content_data[2] - '0';
@@ -3061,12 +3093,16 @@ void send_vehicle_password_unlock_instruct(uint16_t protocol_id) {
   if (app_recieve_callback) {
     app_recieve_callback(0, send_key_code, send_data_len);
   }
-  // 对回包数据进行 AES 加密
+  // 对回包数据进AES 加密
   AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
-  // 开始加密
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_key_code, send_data_len, encrypt_data,
                    &encrypt_len);
   printf("encrypt_data 加密结果:");
@@ -3081,7 +3117,7 @@ void send_vehicle_password_unlock_instruct(uint16_t protocol_id) {
   } else {
     memcpy(send_key_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
 
   if (app_send_user_data_check(encrypt_len)) {
     if (app_send_user_data(
@@ -3103,14 +3139,14 @@ typedef struct {
 } Ble_key_peripheral;
 uint8_t mac_address_exists_gbk[] = {
     0x00, 0x4D, 0x41, 0x43, 0xB5, 0xD8, 0xD6, 0xB7, 0xD2,
-    0xD1, 0xBE, 0xAD, 0xB4, 0xE6, 0xD4, 0xDA}; // “MAC 地址已经存在”的 GBK 文案，前导 0x00 表示失败
+    0xD1, 0xBE, 0xAD, 0xB4, 0xE6, 0xD4, 0xDA}; // “MAC 地址已经存在”的 GBK 文案，前 0x00 表示失败
                                               // 失败提示
 uint8_t
     no_peripheral_key_space_gbk[] =
         {
             0x00, 0xC3, 0xBB, 0xD3, 0xD0, 0xCD, 0xE2, 0xC9,
             0xE8, 0xC0, 0xB6, 0xD1, 0xC0, 0xD4, 0xC4, 0xCA,
-            0xD7, 0xBF, 0xD5, 0xBC, 0xBC, 0xE4}; // “没有蓝牙外设钥匙空间”
+            0xD7, 0xBF, 0xD5, 0xBC, 0xBC, 0xE4}; // “没有蓝牙外设钥匙空间
 Ble_key_peripheral ble_key_peripheral;
 /**
  * @brief 处理 APP 下发蓝牙外设钥匙指令 0x0039
@@ -3127,19 +3163,19 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
   memcpy(ble_key_peripheral.MAC_addr, content_data, 6);
   uint8_t MAC_addr[6];
   memcpy(MAC_addr, ble_key_peripheral.MAC_addr, sizeof(MAC_addr));
-  printf("接收到蓝牙外设钥匙 MAC 地址:%02X:%02X:%02X:%02X:%02X:%02X\n",
+  printf("接收到蓝牙外设钥MAC 地址:%02X:%02X:%02X:%02X:%02X:%02X\n",
          MAC_addr[0], MAC_addr[1], MAC_addr[2], MAC_addr[3], MAC_addr[4],
          MAC_addr[5]);
   uint8_t peripheral_key_num = 0;
 
-  // 读取已使用槽位数量
+  // 读取已使用槽位数据
   uint8_t send_buffer_choice; // 用于决定返回哪种结果
   ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_USABLE, &peripheral_key_num,
                     sizeof(peripheral_key_num));
 
   // 增加读失败和范围保护
   if (ret <= 0) {
-    printf("读取 CFG_BLE_KEY_PERIPHERAL_USABLE 失败，使用默认值 0\n");
+    printf("读取 CFG_BLE_KEY_PERIPHERAL_USABLE 失败，使用默认0\n");
     peripheral_key_num = 0;
   }
 
@@ -3160,12 +3196,12 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
       uint8_t mac_address_exists_gbk[] = {0x4D, 0x41, 0x43, 0xB5, 0xD8,
                                           0xD6, 0xB7, 0xD2, 0xD1, 0xBE,
                                           0xAD, 0xB4, 0xE6, 0xD4, 0xDA};
-      send_buffer_choice = 1; // 表示 MAC 地址已存在
+      send_buffer_choice = 1; // 表示 MAC 地址已存
     } else {
       printf("MAC address not found\n");
 
       // 根据当前 key_num 选择写入哪个槽位
-      // 不再在 case 内直接修改 peripheral_key_num
+      // 不再case 内直接修peripheral_key_num
       switch (peripheral_key_num) {
       case 0:
         ret = syscfg_write(CFG_BLE_KEY_PERIPHERAL_SEND_1, content_data,
@@ -3188,7 +3224,7 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
         printf("save to slot 4\n");
         break;
       default:
-        printf("无效的 key_num: %d", peripheral_key_num);
+        printf("无效key_num: %d", peripheral_key_num);
         ret = -1;
         break;
       }
@@ -3213,7 +3249,7 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
         0xC0, 0xD4, 0xC4, 0xCA, 0xD7, 0xBF, 0xD5, 0xBC, 0xBC, 0xE4};
     send_buffer_choice = 2; // 表示没有空间
   }
-  // free(peripheral_key_num); // 无需释放栈变量
+  // free(peripheral_key_num); // 无需释放栈变
   // 统一组织返回数据
   uint8_t send_buffer[269] = {0};
   uint16_t send_buffer_len = 0;
@@ -3226,9 +3262,9 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
     printf("send save-success response\n");
     break;
 
-  case 1:                  // MAC 地址已存在
+  case 1:                  // MAC 地址已存
     send_buffer[0] = 0x00; // MAC 地址重复状态码
-    // 追加 “MAC 地址已经存在” 的 GBK 提示信息
+    // 追加 “MAC 地址已经存在GBK 提示信息
     uint8_t mac_address_exists_gbk[] = {0x4D, 0x41, 0x43, 0xB5, 0xD8,
                                         0xD6, 0xB7, 0xD2, 0xD1, 0xBE,
                                         0xAD, 0xB4, 0xE6, 0xD4, 0xDA};
@@ -3240,7 +3276,7 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
 
   case 2:                  // 钥匙空间已满
     send_buffer[0] = 0x00; // 没有空间状态码
-    // 追加钥匙空间已满的 GBK 提示信息
+    // 追加钥匙空间已满GBK 提示信息
     uint8_t key_space_full_gbk[] = {
         0xD4, 0xBF, 0xB3, 0xD7, 0xBF, 0xD5, 0xBC, 0xE4, 0xD2, 0xD1, 0xC2, 0xFA};
     memcpy(send_buffer + 1, key_space_full_gbk,
@@ -3269,14 +3305,18 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
   u16 send_data_len =
       convert_protocol_to_buffer(&send_protocl, send_key_code, 269);
 
-  // 对回包数据进行 AES 加密
+  // 对回包数据进AES 加密
   AES_KEY aes_key;
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
   aes_encrypt_pkcs(&aes_key, send_key_code, send_data_len, encrypt_data,
                    &encrypt_len);
 
-  printf("加密后数据:");
+  printf("加密后数据");
   log_info_hexdump(encrypt_data, encrypt_len);
   printf("加密长度: %d, 原始长度: %d", encrypt_len, send_data_len);
 
@@ -3290,7 +3330,7 @@ void ble_key_peripheral_send_instruct_ext(uint16_t protocol_id) {
     memcpy(send_key_code, encrypt_data, encrypt_len);
   }
 
-  // 回环到本地回调
+  // 回环到本地回包
   if (app_recieve_callback) {
     app_recieve_callback(0, send_key_code, encrypt_len);
   }
@@ -3325,7 +3365,7 @@ void delete_ble_key_instruct(uint16_t protocol_id) {
   if (current_key_num[0] > 0) {
 
     uint8_t current_MAC_adders[6] = {0};
-    // 读取第 1 个槽位的 MAC 地址
+    // 读取1 个槽位的 MAC 地址
     syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_1, (void *)current_MAC_adders,
                 sizeof(current_MAC_adders));
     // 如果当前槽位 MAC 与待删除 MAC 相同，则清空该槽位
@@ -3370,7 +3410,7 @@ void delete_ble_key_instruct(uint16_t protocol_id) {
       printf("delete peripheral key slot4\n");
       current_key_num[0]--;
     }
-    // 只有数量发生变化时，才回写当前有效钥匙数量
+    // 只有数量发生变化时，才回写当前有效钥匙数据
     // 否则说明没有匹配到待删除设备
     if (current_key_num[0] != compare_data) {
       syscfg_write(CFG_BLE_KEY_PERIPHERAL_USABLE, (void *)&current_key_num,
@@ -3389,8 +3429,12 @@ void delete_ble_key_instruct(uint16_t protocol_id) {
   AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
-  // 开始加密
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_key_code, send_data_len, encrypt_data,
                    &encrypt_len);
   printf("encrypt_data 加密后的数据:");
@@ -3407,7 +3451,7 @@ void delete_ble_key_instruct(uint16_t protocol_id) {
   } else {
     memcpy(send_key_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
 
   if (app_recieve_callback) {
     app_recieve_callback(0, send_key_code, encrypt_len);
@@ -3428,7 +3472,7 @@ void delete_ble_key_instruct(uint16_t protocol_id) {
 void empty_ble_key_instruct(uint16_t protocol_id) {
   printf("empty_ble_key_instruct\n");
   uint8_t state_flag =
-      0x00; // 状态标志位：0x00 失败，0x01 成功
+      0x00; // 状态标志位x00 失败x01 成功
   if (state_flag == 0x00) {
     uint8_t empty_buffer[28] = {0};
     syscfg_write(CFG_BLE_KEY_PERIPHERAL_SEND_1, empty_buffer, sizeof(empty_buffer));
@@ -3451,8 +3495,12 @@ void empty_ble_key_instruct(uint16_t protocol_id) {
   AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
-  // 开始加密
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_key_code, send_data_len, encrypt_data,
                    &encrypt_len);
   printf("encrypt_data 加密后的数据:");
@@ -3469,7 +3517,7 @@ void empty_ble_key_instruct(uint16_t protocol_id) {
   } else {
     memcpy(send_key_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
 
   if (app_recieve_callback) {
     app_recieve_callback(0, send_key_code, encrypt_len);
@@ -3489,14 +3537,14 @@ void empty_ble_key_instruct(uint16_t protocol_id) {
 //====================================== 添加 NFC 钥匙 ===========================================
 void add_NFC_instruct(uint16_t protocol_id) {
   uart1_send_toMCU(protocol_id, NULL, 0);
-  // 先判断当前 NFC 钥匙数量
+  // 先判断当NFC 钥匙数量
   uint8_t current_NFC_num[1] = {0};
   syscfg_read(CFG_NFC_KEY_PERIPHERAL_USABLE_NUM, (void *)&current_NFC_num,
               sizeof(current_NFC_num));
   uint8_t add_buffer[16] = {0};
   if (uart_data != 0) {
     memcpy(add_buffer, uart_data, data_length);
-    // 后续如有需要可在这里清理 uart_data
+    // 后续如有需要可在这里清uart_data
     // memset(uart_data, 0, data_length);
   } else {
     printf("uart_data is NULL\n");
@@ -3505,7 +3553,7 @@ void add_NFC_instruct(uint16_t protocol_id) {
   // 添加 NFC 钥匙
   if (compare_data < 3) {
     uint8_t current_NFC_adders[16] = {0};
-    // 判断 NFC 槽位在 flash 中是否为空
+    // 判断 NFC 槽位flash 中是否为
     uint8_t is_empty;
     is_empty =
         syscfg_read(CFG_NFC_KEY_PERIPHERAL_SEND_1, (void *)current_NFC_adders,
@@ -3626,8 +3674,12 @@ void delete_NFC_instruct(uint16_t protocol_id) {
   AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
-  // 开始加密
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_key_code, send_data_len, encrypt_data,
                    &encrypt_len);
   printf("encrypt_data 加密后的数据:");
@@ -3644,7 +3696,7 @@ void delete_NFC_instruct(uint16_t protocol_id) {
   } else {
     memcpy(send_key_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
   log_info_hexdump(send_key_code, encrypt_len);
   if (app_recieve_callback) {
     app_recieve_callback(0, send_key_code, encrypt_len);
@@ -3665,7 +3717,7 @@ void delete_NFC_instruct(uint16_t protocol_id) {
 void empty_NFC_instruct(uint16_t protocol_id) {
   printf("empty_ble_key_instruct\n");
   uint8_t state_flag =
-      0x00; // 状态标志位：0x00 失败，0x01 成功
+      0x00; // 状态标志位x00 失败x01 成功
   if (state_flag == 0x00) {
     uint8_t empty_buffer[16] = {0};
     syscfg_write(CFG_NFC_KEY_PERIPHERAL_SEND_1, empty_buffer, sizeof(empty_buffer));
@@ -3689,8 +3741,12 @@ void empty_NFC_instruct(uint16_t protocol_id) {
   AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
-  // 开始加密
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_key_code, send_data_len, encrypt_data,
                    &encrypt_len);
   printf("encrypt_data 加密后的数据:");
@@ -3707,7 +3763,7 @@ void empty_NFC_instruct(uint16_t protocol_id) {
   } else {
     memcpy(send_key_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
   log_info_hexdump(send_key_code, encrypt_len);
   if (app_recieve_callback) {
     app_recieve_callback(0, send_key_code, encrypt_len);
@@ -3725,7 +3781,7 @@ void empty_NFC_instruct(uint16_t protocol_id) {
 }
 //============================================ 删除手机钥匙 =========================================
 void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
-  // 配置项 ID 列表
+  // 配置ID 列表
   uint32_t config_ids[] = {
       CFG_PHONE_BLE_KEY_DELETE_ID_1,
       CFG_PHONE_BLE_KEY_DELETE_ID_2,
@@ -3733,7 +3789,7 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
   };
   int config_count = sizeof(config_ids) / sizeof(config_ids[0]);
 
-  // 存放读取到的绑定 ID；前 3 字节为配对码，后 6 字节为 MAC 地址
+  // 存放读取到的绑定 ID；前 3 字节为配对码，后 6 字节MAC 地址
   u8 id_addr[9] = {0};
   u8 mac_addr[6] = {0};
 
@@ -3767,7 +3823,7 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
       continue;
     }
 
-    // 比较配对码是否一致
+    // 比较配对码是否一
     if (memcmp(received_pair_code, id_addr, sizeof(received_pair_code)) == 0) {
       found_match = 1;
       printf("在绑定ID_%d中找到匹配记录\n", i + 1);
@@ -3781,7 +3837,7 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
 
       // 调用蓝牙管理层删除该 MAC 地址
       int ret = ble_list_delete_device(mac_addr, 0); // 删除指定地址设备
-      printf("ret值=%d\n", ret);
+      printf("ret%d\n", ret);
       if (ret == 1) {
         delete_success = 1;
         send_code[0] = 0x01; // 删除成功
@@ -3792,7 +3848,7 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
         syscfg_write(config_ids[i], (void *)id_addr, sizeof(id_addr));
         printf("已清空绑定ID_%d中的记录\n", i + 1);
 
-        // 回写可用数量，确保计数正确
+        // 回写可用数量，确保计数正
         uint8_t phone_usable_num = 0;
         syscfg_read(CFG_PHONE_BLE_KEY_USABLE_NUM, &phone_usable_num,
                     sizeof(phone_usable_num));
@@ -3800,15 +3856,15 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
           phone_usable_num--;
           syscfg_write(CFG_PHONE_BLE_KEY_USABLE_NUM, &phone_usable_num,
                        sizeof(phone_usable_num));
-          printf("当前可用的手机钥匙数量=%d\n", phone_usable_num);
+          printf("当前可用的手机钥匙数据%d\n", phone_usable_num);
         } else {
-          printf("当前数量已经为0，无需继续减少\n");
+          printf("当前数量已经，无需继续减少\n");
         }
       } else {
         send_code[0] = 0x00; // 删除失败
         printf("删除手机钥匙失败\n");
       }
-      break; // 找到匹配项后退出循环
+      break; // 找到匹配项后退出循
     } else {
       printf("绑定ID_%d中的配对码不匹配\n", i + 1);
     }
@@ -3821,7 +3877,7 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
 
   // 发送结果
   printf("send_code 值为 %02X\n", send_code[0]);
-  // 注意：不要强制覆盖 send_code，保持真实删除结果
+  // 注意：不要强制覆send_code，保持真实删除结果
   fill_send_protocl(protocol_id, send_code, sizeof(send_code));
 
   u16 send_data_len = convert_protocol_to_buffer(&send_protocl, send_code, 269);
@@ -3830,13 +3886,17 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
                            0x43, 0x01, 0xC2, 0x2E, 0x0D, 0x0A
 
   };
-  printf("等待加密发送...\n");
+  printf("等待加密发送..\n");
   log_info_hexdump(send_code, send_data_len);
   AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
-  // 开始加密
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_buffer, sizeof(send_buffer), encrypt_data,
                    &encrypt_len);
   printf("encrypt_data 加密后的数据:");
@@ -3853,7 +3913,7 @@ void delet_phone_bleKey_instrcut(uint16_t protocol_id) {
   } else {
     memcpy(send_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
 
   if (app_recieve_callback) {
     app_recieve_callback(0, send_code, encrypt_len);
@@ -3881,7 +3941,7 @@ void get_vehice_set_infromation_instruct(uint16_t protocol_id) {
   VEH_SET_TRACE("enter", protocol_id, 0);
   printf("Sending request for protocol_id: 0x%04x\n", protocol_id);
   printf("开始获取车辆设置信息\n");
-  /* 0x0033 获取车辆设置信息时，避免被 0x0012 周期上报占用 uart_data */
+  /* 0x0033 获取车辆设置信息时，避免 0x0012 周期上报占用 uart_data */
   u8 timer_was_running = vehicle_control_timer_is_running();
   if (timer_was_running) {
     VEH_SET_TRACE("timer_stop", 1, 0);
@@ -3893,7 +3953,7 @@ void get_vehice_set_infromation_instruct(uint16_t protocol_id) {
 
   static uint8_t uart_copy_buf[256];
   uint16_t uart_copy_len = 0;
-  int wait_count = 150; // 约 1.5s，按 10ms tick 估算
+  int wait_count = 150; // 1.5s，按 10ms tick 估算
   while (wait_count--) {
     if (uart1_take_response(protocol_id, uart_copy_buf, sizeof(uart_copy_buf),
                             &uart_copy_len)) {
@@ -3905,7 +3965,7 @@ void get_vehice_set_infromation_instruct(uint16_t protocol_id) {
 
   if (timer_was_running) {
     VEH_SET_TRACE("timer_start", 1, 2000);
-    vehicle_control_timer_start(1000);// 恢复定时上报
+    vehicle_control_timer_start(1000);// 1000ms 重新启动
   }
 
   static const uint8_t default_data[] = {
@@ -3956,8 +4016,12 @@ void get_vehice_set_infromation_instruct(uint16_t protocol_id) {
   AES_KEY aes_key;
 
   u16 encrypt_len = sizeof(encrypt_data);
-  aes_set_encrypt_key(&aes_key, test_aes_key1, AES128_KEY_SIZE);
-  // 开始加密
+  {
+    u8 keybuf[16];
+    const u8 *key = fill_protocol_get_aes_key(keybuf);
+    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+  }
+  // 开始加
   aes_encrypt_pkcs(&aes_key, send_key_code, send_data_len, encrypt_data,
                    &encrypt_len);
   VEH_SET_TRACE("aes_done", encrypt_len, 0);
@@ -3975,7 +4039,7 @@ void get_vehice_set_infromation_instruct(uint16_t protocol_id) {
   } else {
     memcpy(send_key_code, encrypt_data, encrypt_len);
   }
-  printf("最终发送数据:");
+  printf("最终发送数据");
 
   if (app_recieve_callback) {
     app_recieve_callback(0, send_key_code, encrypt_len);
@@ -3987,7 +4051,7 @@ void get_vehice_set_infromation_instruct(uint16_t protocol_id) {
       send_key_code, encrypt_len, ATT_OP_NOTIFY, protocol_id);
   VEH_SET_TRACE("exit", protocol_id, 0);
 }
-// ================================== 自定义音效相关指令 ===========================================
+// ================================== 自定义音效相关指===========================================
 #if FILL_PROTOCOL_MUSIC_ENABLE
 
 typedef struct indivi_tone {
@@ -3995,15 +4059,15 @@ typedef struct indivi_tone {
   uint32_t file_size;    // 文件大小 4 字节
   uint32_t file_crc32;   // CRC32 4 字节
   uint64_t tone_id;      // 音效 ID 8 字节
-  uint8_t file_name[32]; // 文件名，最多 32 字节
+  uint8_t file_name[32]; // 文件名，最32 字节
 } indivi_tone;
 
-/* 自定义音效约定：存放在内部 FLASH USER reserved 区
- * - 音频数据：按 tone_type 写入对应 reserved 文件映射节点（不是目录/普通文件）
- *   - UWTG0 对应 isd_config.ini 的 [RESERVED_CONFIG]，VFS 路径为 mnt/sdfile/app/uwtg0
- *   - UWTG1~UWTG3 对应 isd_config.ini 的 [RESERVED_EXPAND_CONFIG]，VFS 路径为 mnt/sdfile/EXT_RESERVED/UWTG{1..3}
- * - 元信息写入 syscfg 的 CFG_CUSTOM_TONE_META_0..3，供 0x0075 查询
- * - 共享定义见 user_info_file.h，这里直接复用
+/* 自定义音效约定：存放在内FLASH USER reserved 
+ * - 音频数据：按 tone_type 写入对应 reserved 文件映射节点（不是目普通文件）
+ *   - UWTG0 对应 isd_config.ini [RESERVED_CONFIG]，VFS 路径mnt/sdfile/app/uwtg0
+ *   - UWTG1~UWTG3 对应 isd_config.ini [RESERVED_EXPAND_CONFIG]，VFS 路径mnt/sdfile/EXT_RESERVED/UWTG{1..3}
+ * - 元信息写syscfg 到 CFG_CUSTOM_TONE_META_0..3，供 0x0075 查询
+ * - 共享定义user_info_file.h，这里直接恢复
  */
 
 static int custom_tone_read_meta_by_id(int cfg_id, custom_tone_meta_t *meta_out)
@@ -4068,8 +4132,8 @@ static void custom_tone_probe_file_format(const char *path)
          head[0], head[1], head[2], head[3], head[4], head[5], head[6], head[7],
          head[8], head[9], head[10], head[11], head[12], head[13], head[14], head[15]);
 
-  /* 说明：这里根据文件头判断音频格式。
-   * 手机侧下发 WAV 时通常带有完整 RIFF/WAVE 头，可据此确认写入是否正常。
+  /* 说明：这里根据文件头判断音频格式
+   * 手机侧下发WAV 时通常带有完整 RIFF/WAVE 头，可据此确认写入是否正常
    */
   if (rlen >= 12 && !memcmp(head, "RIFF", 4) && !memcmp(head + 8, "WAVE", 4)) {
     printf("[CUSTOM_TONE] looks like WAV (RIFF/WAVE).\n");
@@ -4101,8 +4165,8 @@ file_config_t file_config; // 文件创建配置
 FILE *file_handle;
 // 全局文件传输状态，去掉 static 以便外部调试查询
 uint32_t file_write_offset = 0;       // 当前写入偏移
-uint32_t total_file_size = 0;         // 文件总大小
-uint8_t is_file_transfer_started = 0; // 文件传输是否已开始
+uint32_t total_file_size = 0;         // 文件总大端
+uint8_t is_file_transfer_started = 0; // 文件传输是否已开启
 static char current_file_path[96] = {0};     // 当前写入文件路径
 static struct indivi_tone Indivi_tone;
 
@@ -4113,14 +4177,14 @@ static uint32_t g_music_rx_nonzero_bytes = 0;
 static uint32_t g_music_rx_total_bytes = 0;
 static uint16_t g_music_rx_all_zero_pkts = 0;
 
-/* 0x0075：获取自定义音效列表，返回 meta + 文件名信息
+/* 0x0075：获取自定义音效列表，返meta + 文件名信
  * 返回结构：LIST[]
  * - 音效类型 UINT8
  * - 音频ID  UINT64 (BE)
- * - 文件名长度 UINT8
- * - 文件名 STRING(GBK) 1~32
+ * - 文件名长度UINT8
+ * - 文件STRING(GBK) 1~32
  * 
- * 每种音效都会先返回一个默认音效项，tone_id=0；随后再追加用户上传的自定义音效。
+ * 每种音效都会先返回一个默认音效项，tone_id=0；随后再追加用户上传的自定义音效
  */
 static void get_vehice_music_infromation_instruct(uint16_t protocol_id)
 {
@@ -4129,7 +4193,7 @@ static void get_vehice_music_infromation_instruct(uint16_t protocol_id)
   memset(out, 0, sizeof(out));
 
   // 默认音效名称使用 GBK 编码，下面保留十六进制字节，避免 UTF-8/GBK 混淆
-  // "默认开机音效" GBK: C4 AC C8 CF BF AA BB FA D2 F4 D0 A7
+  // "默认开机音量 GBK: C4 AC C8 CF BF AA BB FA D2 F4 D0 A7
   static const uint8_t default_tone_name_0[] = {0xC4, 0xAC, 0xC8, 0xCF, 0xBF, 0xAA, 0xBB, 0xFA, 0xD2, 0xF4, 0xD0, 0xA7};
   // "默认关机音效" GBK: C4 AC C8 CF B9 D8 BB FA D2 F4 D0 A7
   static const uint8_t default_tone_name_1[] = {0xC4, 0xAC, 0xC8, 0xCF, 0xB9, 0xD8, 0xBB, 0xFA, 0xD2, 0xF4, 0xD0, 0xA7};
@@ -4139,7 +4203,7 @@ static void get_vehice_music_infromation_instruct(uint16_t protocol_id)
   static const uint8_t default_tone_name_3[] = {0xC4, 0xAC, 0xC8, 0xCF, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xD2, 0xF4, 0xD0, 0xA7};
   
   static const uint8_t *default_tone_names[] = {
-    default_tone_name_0,  // type 0: 默认开机音效
+    default_tone_name_0,  // type 0: 默认开机音量
     default_tone_name_1,  // type 1: 默认关机音效
     default_tone_name_2,  // type 2: 默认报警音效
     default_tone_name_3,  // type 3: 默认 Hello 音效
@@ -4153,7 +4217,7 @@ static void get_vehice_music_infromation_instruct(uint16_t protocol_id)
 
   // 返回结构：先放默认音效项，再追加自定义音效项
   for (uint8_t type = 0; type < CUSTOM_TONE_MAX_TYPES; type++) {
-    // 1. 先放入默认音效（tone_id = 0 表示默认）
+    // 1. 先放入默认音效（tone_id = 0 表示默认
     const uint8_t *def_name = default_tone_names[type];
     uint8_t def_name_len = default_tone_name_lens[type];
     if (def_name_len > 32) def_name_len = 32;
@@ -4169,12 +4233,12 @@ static void get_vehice_music_infromation_instruct(uint16_t protocol_id)
       offset += def_name_len;
     }
 
-    // 2. 再追加用户上传的自定义音效
+    // 2. 再追加用户上传的自定义音量
     custom_tone_meta_t meta = {0};
     int cfg_id = custom_tone_meta_cfg_id(type);
     if (custom_tone_read_meta_by_id(cfg_id, &meta) != 0 || meta.file_size == 0) {
       log_info("[CUSTOM_TONE] type=%u no custom tone meta，当前没有保存音频\n", type);
-      continue;  // 当前类型没有自定义音效
+      continue;  // 当前类型没有自定义音量
     }
 
     uint8_t name_len = meta.name_len;
@@ -4206,7 +4270,7 @@ static void get_vehice_music_infromation_instruct(uint16_t protocol_id)
   tone_reply_ble_simple(protocol_id, out, offset);
 }
 
-// 给 le_trans_data.c 用的外部包装接口
+// 见 le_trans_data.c 用的外部包装接口
 void get_vehice_music_infromation_instruct_ext(uint16_t protocol_id)
 {
   get_vehice_music_infromation_instruct(protocol_id);
@@ -4216,7 +4280,7 @@ void get_vehice_music_infromation_instruct_ext(uint16_t protocol_id)
  * @brief 音效选择指令 (0x0076)
  * 请求数据格式：[tone_type 1字节][tone_id 8字节大端]
  * - tone_id = 0 表示选择默认音效
- * - tone_id != 0 表示选择自定义音效
+ * - tone_id != 0 表示选择自定义音量
  * 响应：[result 1字节] 0x01=成功, 0x00=失败
  */
 static void select_tone_instruct(uint16_t protocol_id)
@@ -4225,16 +4289,16 @@ static void select_tone_instruct(uint16_t protocol_id)
   
   // 校验数据长度：tone_type(1) + tone_id(8) = 9 字节
   if (content_length < 9) {
-    printf("[SELECT_TONE] 数据长度不足，期望 9 字节，实际 %d\n", content_length);
+    printf("[SELECT_TONE] 数据长度不足，期9 字节，实%d\n", content_length);
     uint8_t resp = 0x00;
     tone_reply_ble_simple(protocol_id, &resp, 1);
     return;
   }
   
-  // 检查音效类型
+  // 检查音效类
   uint8_t tone_type = content_data[0];
   if (tone_type >= CUSTOM_TONE_MAX_TYPES) {
-    printf("[SELECT_TONE] 无效的 tone_type=%u\n", tone_type);
+    printf("[SELECT_TONE] 无效tone_type=%u\n", tone_type);
     uint8_t resp = 0x00;
     tone_reply_ble_simple(protocol_id, &resp, 1);
     return;
@@ -4249,7 +4313,7 @@ static void select_tone_instruct(uint16_t protocol_id)
   
   printf("[SELECT_TONE] tone_type=%u, tone_id=%llu\n", tone_type, tone_id);
   
-  // 确认选择类型：tone_id = 0 表示默认音效，否则为自定义音效
+  // 确认选择类型：tone_id = 0 表示默认音效，否则为自定义音量
   uint8_t select = (tone_id == 0) ? TONE_SELECT_DEFAULT : TONE_SELECT_CUSTOM;
   
   // 保存用户选择
@@ -4267,7 +4331,7 @@ static void select_tone_instruct(uint16_t protocol_id)
   }
 }
 
-// 给 le_trans_data.c 用的外部包装接口
+// 见 le_trans_data.c 用的外部包装接口
 void select_tone_instruct_ext(uint16_t protocol_id)
 {
   select_tone_instruct(protocol_id);
@@ -4281,7 +4345,7 @@ void select_tone_instruct_ext(uint16_t protocol_id)
 static void set_vehice_music_instruct(uint16_t protocol_id) {
   if (content_length < 17) {
     log_info(
-        "set_vehice_music_instruct: 数据长度不足，至少需要 17 字节，当前长度=%d",
+        "set_vehice_music_instruct: 数据长度不足，至少需17 字节，当前长度%d",
         content_length);
     return;
   }
@@ -4303,7 +4367,7 @@ static void set_vehice_music_instruct(uint16_t protocol_id) {
       ((uint64_t)content_data[11] << 40) | ((uint64_t)content_data[12] << 32) |
       ((uint64_t)content_data[13] << 24) | ((uint64_t)content_data[14] << 16) |
       ((uint64_t)content_data[15] << 8) | content_data[16];
-  // 特殊判断：tone_id == 0x00000001 表示切回默认音效，直接清空当前自定义槽位并返回成功
+  // 特殊判断：tone_id == 0x00000001 表示切回默认音效，直接清空当前自定义槽位并返回成
   if (Indivi_tone.tone_id == 0x00000001ULL) {
     memset(Indivi_tone.file_name, 0, sizeof(Indivi_tone.file_name));
     if (custom_tone_clear_slot(Indivi_tone.tone_type) != 0 ||
@@ -4349,17 +4413,17 @@ static void set_vehice_music_instruct(uint16_t protocol_id) {
 
   printf("=== 音效信息指令解析结果 ===\n");
   printf("音效类型 (tone_type): %u\n", Indivi_tone.tone_type);
-  printf("文件大小 (file_size): %u 字节 (约 %.2f MB)\n", Indivi_tone.file_size,
+  printf("文件大小 (file_size): %u 字节 (%.2f MB)\n", Indivi_tone.file_size,
          (float)Indivi_tone.file_size / (1024 * 1024));
   printf("文件校验 (file_crc32): 0x%08X\n", Indivi_tone.file_crc32);
   printf("音频ID (tone_id): %llu\n", Indivi_tone.tone_id);
-  printf("文件名 (file_name): ");
+  printf("文件(file_name): ");
   for (int i = 0; i < file_name_length && Indivi_tone.file_name[i] != '\0'; i++) {
     printf("%c", Indivi_tone.file_name[i]);
   }
   printf("\n");
-  printf("文件名长度: %d 字节\n", file_name_length);
-  printf("文件名十六进制: ");
+  printf("文件名长度 %d 字节\n", file_name_length);
+  printf("文件名十六进 ");
   for (int i = 0; i < file_name_length && i < 32; i++) {
     printf("%02X ", Indivi_tone.file_name[i]);
   }
@@ -4399,26 +4463,26 @@ static void set_vehice_music_instruct(uint16_t protocol_id) {
   printf("音效类型: %u\n", Indivi_tone.tone_type);
   printf("音效ID: %llu\n", Indivi_tone.tone_id);
   printf("期望 CRC32: 0x%08X\n", Indivi_tone.file_crc32);
-  printf("文件名: %s\n", Indivi_tone.file_name);
+  printf("文件 %s\n", Indivi_tone.file_name);
   printf("文件传输状态已初始化，等待数据写入...\n");
   printf("=======================================================\n\n");
 
   uint8_t resp = 0x01;
   tone_reply_ble_simple(protocol_id, &resp, 1);
 }
-// 开锁指令
+// 开锁指
 void open_lock_instruct(uint16_t protocol_id) {
   // 解析开锁状态
   uint8_t lock_status = content_data[0];
   printf("lock_status = %d\n", lock_status);
 }
 /**
- * @brief 音效文件数据发送指令，用于把音频文件写入 flash/APP/ufile 目录
+ * @brief 音效文件数据发送指令，用于把音频文件写flash/APP/ufile 目录
  *
  * @param protocol_id 协议 ID 2207
  */
 static void music_file_send_instruct(uint16_t protocol_id) {
-  // 检查文件传输是否已开始
+  // 检查文件传输是否已开启
   if (!is_file_transfer_started || !file_handle) {
     log_info("文件传输尚未开始，请先调用 set_vehice_music_instruct 创建文件");
     uint8_t resp = 0x00;
@@ -4445,14 +4509,14 @@ static void music_file_send_instruct(uint16_t protocol_id) {
   if (file_write_offset + chunk_len > total_file_size) {
     u32 desired_size = file_write_offset + chunk_len;
     if (desired_size > CUSTOM_TONE_SLOT_MAX_SIZE) {
-      log_info("数据包超过文件大小上限，当前偏移: %u, 数据长度: %u, 目标大小: %u, 最大限制: %u",
+      log_info("数据包超过文件大小上限，当前偏移: %u, 数据长度: %u, 目标大小: %u, 最大限 %u",
                file_write_offset, chunk_len, desired_size,
                (unsigned)CUSTOM_TONE_SLOT_MAX_SIZE);
       uint8_t resp = 0x00;
       tone_reply_ble_simple(protocol_id, &resp, 1);
       return;
     }
-    /* 兼容 APP 实际发送长度大于声明长度的情况，动态扩展接收长度 */
+    /* 兼容 APP 实际发送长度大于声明长度的情况，动态扩展接收长度*/
     log_info("music_file_send: expand file_size %u -> %u",
              total_file_size, desired_size);
     total_file_size = desired_size;
@@ -4460,7 +4524,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
     file_config.max_size = (int)desired_size;
   }
 
-  // 每次传输开始时重置包计数
+  // 每次传输开始时重置包计
   static uint16_t pkt_count = 0;
   if (file_write_offset == 0) {
     pkt_count = 0;
@@ -4480,7 +4544,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
     }
 
     if (file_write_offset == 0) {
-      printf("[MUSIC_RX] ====== 开始接收音频数据 ======\n");
+      printf("[MUSIC_RX] ====== 开始接收音频数据======\n");
       printf("[MUSIC_RX] first chunk_len=%u, nonzero=%u, head16:", chunk_len, nz);
       for (uint16_t j = 0; j < 16 && j < chunk_len; j++) {
         printf(" %02X", content_data[j]);
@@ -4498,7 +4562,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
   }
 
   if (file_write_data(file_handle, content_data, chunk_len, file_write_offset) != 0) {
-    log_info("文件写入失败，偏移 %u", file_write_offset);
+    log_info("文件写入失败，偏%u", file_write_offset);
     uint8_t resp = 0x00;
     tone_reply_ble_simple(protocol_id, &resp, 1);
     return;
@@ -4528,7 +4592,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
     file_close(file_handle);
     file_handle = NULL;
 
-    /* 如果实际接收长度超过声明长度，则以实际长度为准收尾 */
+    /* 如果实际接收长度超过声明长度，则以实际长度为准收*/
     if (file_write_offset > total_file_size) {
       log_info("music_file_send: finalize size %u -> %u",
                total_file_size, file_write_offset);
@@ -4552,10 +4616,10 @@ static void music_file_send_instruct(uint16_t protocol_id) {
       
       // 输出异常统计
       if (g_music_rx_nonzero_bytes < g_music_rx_total_bytes / 10) {
-        printf("[MUSIC_RX] WARNING: 非零字节比例过低 (<10%%)，数据可能异常!\n");
+        printf("[MUSIC_RX] WARNING: 非零字节比例过低 (<10%%)，数据可能异\n");
       }
       if (g_music_rx_all_zero_pkts > 10) {
-        printf("[MUSIC_RX] WARNING: 全零包过多 (%u)，传输可能异常!\n", g_music_rx_all_zero_pkts);
+        printf("[MUSIC_RX] WARNING: 全零包过(%u)，传输可能异\n", g_music_rx_all_zero_pkts);
       }
       printf("================================================================\n\n");
     }
@@ -4566,7 +4630,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
     if (file_write_offset == total_file_size) {
       log_info("文件传输完成: %s, 大小: %u 字节", current_file_path, file_write_offset);
     } else {
-      log_info("文件传输长度不一致: %s, 实际: %u 字节, 声明: %u 字节",
+      log_info("文件传输长度不一 %s, 实际: %u 字节, 声明: %u 字节",
                current_file_path, file_write_offset, total_file_size);
     }
 
@@ -4575,7 +4639,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
       printf("[CUSTOM_TONE] Verifying file integrity...\n");
       FILE *verify_fp = fopen(current_file_path, "rb");
       if (verify_fp) {
-        // 读取文件内容并计算 CRC32
+        // 读取文件内容并计CRC32
         uint32_t calc_crc = 0;
         uint8_t buf[256];
         int total_read = 0;
@@ -4583,26 +4647,26 @@ static void music_file_send_instruct(uint16_t protocol_id) {
           int r = fread(verify_fp, buf, sizeof(buf));
           if (r <= 0) break;
           total_read += r;
-          // 简单 CRC32 累加实现
+          // 简CRC32 累加实现
           for (int i = 0; i < r; i++) {
             calc_crc = ((calc_crc << 8) | buf[i]) ^ (calc_crc >> 24);
           }
         }
         fclose(verify_fp);
         
-       printf("[CUSTOM_TONE] 文件读取了 %d 字节\n",total_read);
+       printf("[CUSTOM_TONE] 文件读取%d 字节\n",total_read);
         printf("[CUSTOM_TONE] 期望 CRC32: 0x%08X\n", Indivi_tone.file_crc32);
         printf("[CUSTOM_TONE] 计算CRC32: 0x%08X\n", calc_crc);
         
         if (total_read != (int)total_file_size) {
-          printf("[CUSTOM_TONE] ERROR: 文件大小不匹配，实际=%d，声明=%u\n", 
+          printf("[CUSTOM_TONE] ERROR: 文件大小不匹配，实际=%d，声%u\n", 
                  total_read, total_file_size);
         }
         
-        // 注意：如果 APP 没有发送准确 CRC32，这里可能不匹配
+        // 注意：如给 APP 没有发送准CRC32，这里可能不匹配
         // 先保留日志，方便后续排查
       } else {
-        printf("[CUSTOM_TONE] ERROR: 无法打开文件做校验: %s\n", current_file_path);
+        printf("[CUSTOM_TONE] ERROR: 无法打开文件做校验 %s\n", current_file_path);
       }
     }
     
@@ -4625,7 +4689,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
         
         #define WRITE_LINE(str) fwrite(report_fp, str, strlen(str))
         
-        WRITE_LINE("==================== 自定义音效传输报告 ====================\n");
+        WRITE_LINE("==================== 自定义音效传输报====================\n");
         
         len = snprintf(buf, sizeof(buf), "耗时: %u ms\n", elapsed);
         fwrite(report_fp, buf, len);
@@ -4636,7 +4700,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
         len = snprintf(buf, sizeof(buf), "文件路径: %s\n", current_file_path);
         fwrite(report_fp, buf, len);
         
-        len = snprintf(buf, sizeof(buf), "文件名: %s\n", Indivi_tone.file_name);
+        len = snprintf(buf, sizeof(buf), "文件 %s\n", Indivi_tone.file_name);
         fwrite(report_fp, buf, len);
         
         WRITE_LINE("\n--- 传输统计 ---\n");
@@ -4649,7 +4713,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
                 g_music_rx_total_bytes ? (g_music_rx_nonzero_bytes * 100.0f / g_music_rx_total_bytes) : 0.0f);
         fwrite(report_fp, buf, len);
         
-        len = snprintf(buf, sizeof(buf), "全零包数量: %u\n", g_music_rx_all_zero_pkts);
+        len = snprintf(buf, sizeof(buf), "全零包数据 %u\n", g_music_rx_all_zero_pkts);
         fwrite(report_fp, buf, len);
         
         len = snprintf(buf, sizeof(buf), "平均速度: %.2f KB/s\n",
@@ -4686,7 +4750,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
         if (g_music_rx_all_zero_pkts <= 5) {
           WRITE_LINE("全零数据包数量正常\n");
         } else {
-          len = snprintf(buf, sizeof(buf), "全零数据包过多 (%u)，传输可能异常\n", g_music_rx_all_zero_pkts);
+          len = snprintf(buf, sizeof(buf), "全零数据包过(%u)，传输可能异常\n", g_music_rx_all_zero_pkts);
           fwrite(report_fp, buf, len);
         }
         
@@ -4714,7 +4778,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
       strncpy(meta.file_name, (const char *)Indivi_tone.file_name, sizeof(meta.file_name) - 1);
       meta.file_name[sizeof(meta.file_name) - 1] = '\0';
       meta.name_len = (uint8_t)strlen(meta.file_name);
-      /* 将元数据写入 syscfg，供后续音频播放与列表查询使用 */
+      /* 将元数据写入 syscfg，供后续音频播放与列表查询使用*/
       int cfg_id = custom_tone_meta_cfg_id(meta.tone_type);
       syscfg_write(cfg_id, &meta, sizeof(meta));
     }
@@ -4763,6 +4827,7 @@ void remove_vehicle_binding_instruct(uint16_t protocol_id) {
   }
 }
 //===============================================================================================
+
 
 
 

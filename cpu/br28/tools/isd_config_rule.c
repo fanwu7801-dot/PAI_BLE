@@ -114,6 +114,7 @@
 ISD_CFG
 [EXTRA_CFG_PARAM]
 #if CONFIG_DOUBLE_BANK_ENABLE
+REMOTE_FLASH_PARAMS = YES;
 BR22_TWS_DB = YES;	//dual bank flash framework enable
 FLASH_SIZE = CONFIG_FLASH_SIZE;		//flash_size cfg
 BR22_TWS_VERSION = 0; //default fw version

@@ -10,13 +10,17 @@
 
 #include <string.h>
 
+extern int tone_play_open_with_callback(const char **list, u8 follow, u8 preemption,
+                                        void (*evt_handler)(void *priv, int flag),
+                                        void *evt_priv);
+
 // 前置声明
 static void user_info_ensure_dir_exists_for_path(const char *file_path);
 
 // 播放回调函数
 static void tone_play_callback(void *priv, int flag) {
   printf("[CUSTOM_TONE][PLAY_CALLBACK] flag=%d\n", flag);
-  if (flag == TONE_STOP) {
+  if (flag == TONE_STOP && tone_get_status() == TONE_STOP) {
     extern void bt_tone_pa_ctrl_set(u8 on);
     bt_tone_pa_ctrl_set(0);
   }
@@ -293,7 +297,16 @@ bool user_custom_tone_play_if_exist(uint8_t tone_type, u8 preemption)
   memset(play_name_buf, 0, sizeof(play_name_buf));
   strncpy(play_name_buf, path, sizeof(play_name_buf) - 1);
 
-  int ret = tone_play_with_callback_by_name(play_name_buf, preemption, tone_play_callback, NULL);
+  int ret = 0;
+  if (preemption) {
+    ret = tone_play_with_callback_by_name(play_name_buf, preemption, tone_play_callback, NULL);
+  } else {
+    // 非打断模式：follow=1，追加到提示音队列，等待当前音效播放完成后再播
+    const char *single_file[2] = {0};
+    single_file[0] = play_name_buf;
+    single_file[1] = NULL;
+    ret = tone_play_open_with_callback(single_file, 1, 0, tone_play_callback, NULL);
+  }
   printf("[CUSTOM_TONE] play ret=%d\n", ret);
   printf("================================================\n\n");
   

@@ -7,7 +7,7 @@
 
 /* #if (BT_AI_SEL_PROTOCOL & (RCSP_MODE_EN | GFPS_EN)) */
 
-#define ATT_LOCAL_PAYLOAD_SIZE    (517)//(517)              //note: need >= 20
+#define ATT_LOCAL_PAYLOAD_SIZE    (512)//(512)              //note: need >= 20
 #define ATT_SEND_CBUF_SIZE        (512*2)                   //note: need >= 20,缓存大小，可修改
 #define ATT_RAM_BUFSIZE           (ATT_CTRL_BLOCK_SIZE + ATT_LOCAL_PAYLOAD_SIZE + ATT_SEND_CBUF_SIZE)                   //note:
 static u8 att_ram_buffer[ATT_RAM_BUFSIZE] __attribute__((aligned(4)));

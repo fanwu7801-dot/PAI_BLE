@@ -42,6 +42,7 @@ static void uart_send_ble_key_list(uint16_t protocol_id);
 static void uart_send_password_key_list(uint16_t protocol_id);
 static void uart1_pending_tx_try(void);
 extern int dual_ota_app_data_deal(u32 msg, u8 *buf, u32 len);
+extern uint8_t test_aes_key[16];
 static volatile u8 g_uart1_tx_pending;
 static u16 g_uart1_tx_pending_len;
 static u8 g_uart1_tx_pending_buf[269];
@@ -180,9 +181,9 @@ static int sn_payload_to_hex8(const uint8_t *in, uint16_t in_len, uint8_t out[8]
 #endif
 
 #ifndef APP_MSG_USER_CUSTOM_TONEPLAY
-#define APP_MSG_USER_CUSTOM_TONEPLAY 6WWWW
+#define APP_MSG_USER_CUSTOM_TONEPLAY 6
 
-#define UPDATA_SN_AES_KEY    1
+#define UPDATA_SN_AES_KEY    1 // enable SN/AES key update from MCU
 
 // UART->APP 音效播放消息重试（避免消息队列满时丢失）
 #define TONEPLAY_RETRY_MAX         5
@@ -191,6 +192,10 @@ static bool g_toneplay_pending = false;
 static int g_toneplay_pending_id = 0;
 static uint8_t g_toneplay_retry_count = 0;
 static uint32_t g_toneplay_retry_tick = 0;
+#endif
+
+#ifndef UPDATA_SN_AES_KEY
+#define UPDATA_SN_AES_KEY    1
 #endif
 
 // UART->SOC 配对 PIN/passkey 打包标志：arg0 = FLAG | passkey(0~999999)
@@ -209,7 +214,7 @@ static int uart_parse_pair_passkey(const uint8_t *data, uint16_t len, uint32_t *
     return -1;
   }
 
-  // 1) 优先支持 ASCII 6 位数字（例如："123456"）
+  // 1) 优先支持 ASCII 6 位数字
   if (len >= 6) {
     uint32_t v = 0;
     uint8_t ok = 1;
@@ -384,6 +389,92 @@ uint8_t uart_aes_key_buffer[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                    0x00, 0x00, 0x00, 0x00};
 int r; // 数据包长度
+static bool uart_runtime_key_is_valid(const uint8_t *key, uint16_t len)
+{
+  uint16_t i;
+  bool all_zero = true;
+  bool all_ff = true;
+
+  if (!key || !len) {
+    return false;
+  }
+
+  for (i = 0; i < len; i++) {
+    if (key[i] != 0x00) {
+      all_zero = false;
+    }
+    if (key[i] != 0xFF) {
+      all_ff = false;
+    }
+  }
+
+  return (!all_zero && !all_ff);
+}
+
+void uart_runtime_sn_update(const uint8_t sn[8])
+{
+  if (!sn) {
+    return;
+  }
+
+  OS_ENTER_CRITICAL();
+  memcpy(uart_sn_buffer, sn, sizeof(uart_sn_buffer));
+  g_uart_sn_valid = 1;
+  OS_EXIT_CRITICAL();
+}
+
+bool uart_runtime_sn_get(uint8_t sn_out[8])
+{
+  bool valid = false;
+
+  if (!sn_out) {
+    return false;
+  }
+
+  OS_ENTER_CRITICAL();
+  if (g_uart_sn_valid) {
+    memcpy(sn_out, uart_sn_buffer, sizeof(uart_sn_buffer));
+    valid = true;
+  }
+  OS_EXIT_CRITICAL();
+
+  return valid;
+}
+
+void uart_runtime_aes_key_update(const uint8_t aes_key[16])
+{
+  if (!aes_key) {
+    return;
+  }
+
+  OS_ENTER_CRITICAL();
+  memcpy(uart_aes_key_buffer, aes_key, sizeof(uart_aes_key_buffer));
+  memcpy(test_aes_key, aes_key, sizeof(uart_aes_key_buffer));
+  g_uart_aes_valid = 1;
+  OS_EXIT_CRITICAL();
+}
+
+bool uart_runtime_aes_key_get(uint8_t aes_key_out[16])
+{
+  bool valid = false;
+
+  if (!aes_key_out) {
+    return false;
+  }
+
+  OS_ENTER_CRITICAL();
+  if (g_uart_aes_valid && uart_runtime_key_is_valid(uart_aes_key_buffer, sizeof(uart_aes_key_buffer))) {
+    memcpy(aes_key_out, uart_aes_key_buffer, sizeof(uart_aes_key_buffer));
+    valid = true;
+  } else if (uart_runtime_key_is_valid(test_aes_key, sizeof(uart_aes_key_buffer))) {
+    memcpy(aes_key_out, test_aes_key, sizeof(uart_aes_key_buffer));
+    valid = true;
+  }
+  OS_EXIT_CRITICAL();
+
+  return valid;
+}
+
 uint16_t uart_protocol_id = 0;
 uint8_t *uart_data = NULL;
 uint8_t *uart_rx_data = NULL;
@@ -798,9 +889,6 @@ static void uart1_sync_demo(void *p) {
   uart_rx_ptr = dma_malloc(2048);
 
   const struct uart_dma_config dma = {
-      /* NOTE: 0x0033 ??? 115200bps ???????data_len=51<expected=88?
-       * ?????? ~3 ??????? ~30 ??????????? RX_TIMEOUT
-       * ????????? */
       .rx_timeout_thresh =
           30 * 10000000 /
           config.baud_rate, // ??:us,? ~30 ? byte ???????????
@@ -814,7 +902,7 @@ static void uart1_sync_demo(void *p) {
       .frame_size = 2048, //=rx_cbuffer_size
   };
 
-  printf("************uart demo***********\n");
+  printf("************uart has being init ***********\n");
 
   uart_dev uart_id = 1;
   int ut = uart_init_new(uart_id, &config);
@@ -946,11 +1034,10 @@ static void uart1_sync_demo(void *p) {
             if (sn_payload_to_hex8(uart_data, data_length, sn_hex8) != 0) {
               printf("SN 数据更新的长度=%d\n", data_length);
             } else {
-              memcpy(uart_sn_buffer, sn_hex8, 8);
-              int w = syscfg_write(CFG_DEVICE_SN, uart_sn_buffer, 8);
-              g_uart_sn_valid = 1;
+              uart_runtime_sn_update(sn_hex8);
+              int w = syscfg_write(CFG_DEVICE_SN, sn_hex8, 8);
               printf("SN updated(保存转化为HEX8):\n");
-              put_buf(uart_sn_buffer, 8);
+              put_buf(sn_hex8, 8);
 
               // 读回验证，帮助定位“写了但广播没变”的问题
               {
@@ -964,7 +1051,7 @@ static void uart1_sync_demo(void *p) {
               }
 
               app_send_message(APP_MSG_USER_SN, 0);
-              uart_update_ble_adv_restart();
+              // uart_update_ble_adv_restart();
             }
           }
         }
@@ -973,9 +1060,10 @@ static void uart1_sync_demo(void *p) {
           if (data_length < 16) {
             printf("AES_KEY update invalid len=%d\n", data_length);
           } else {
-            memcpy(uart_aes_key_buffer, uart_data, 16);
-            int w = syscfg_write(CFG_DEVICE_AES_KEY, uart_aes_key_buffer, 16);
-            g_uart_aes_valid = 1;
+            uint8_t new_aes_key[16] = {0};
+            memcpy(new_aes_key, uart_data, sizeof(new_aes_key));
+            uart_runtime_aes_key_update(new_aes_key);
+            int w = syscfg_write(CFG_DEVICE_AES_KEY, new_aes_key, sizeof(new_aes_key));
             printf("AES_KEY updated and saved.\n");
 
             // 读回验证
@@ -983,9 +1071,17 @@ static void uart1_sync_demo(void *p) {
               uint8_t rb[16] = {0};
               int r = syscfg_read(CFG_DEVICE_AES_KEY, rb, sizeof(rb));
               printf("syscfg_write(CFG_DEVICE_AES_KEY) ret=%d, readback ret=%d\n", w, r);
+              printf("AES_KEY readback:\n");
+              put_buf(new_aes_key, 16);
+              if (memcmp(rb, new_aes_key, 16) == 0) {
+                printf("AES_key_检验成功, matches written value.\n");
+              } else {
+                printf("AES_KEY_检验失败, does not match written value.\n");
+              }
+              
             }
 
-            app_send_message(APP_MSG_USER_AES_KEY, 0);
+            // app_send_message(APP_MSG_USER_AES_KEY, 0);
             uart_update_ble_adv_restart();
           }
         }
