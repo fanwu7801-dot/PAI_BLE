@@ -68,7 +68,7 @@ static int is_all_zero(const uint8_t *data, uint16_t len)
   return 1;
 }
 
-static int sn_payload_to_hex8(const uint8_t *in, uint16_t in_len, uint8_t out[8])
+ int sn_payload_to_hex8(const uint8_t *in, uint16_t in_len, uint8_t out[8])
 {
   if (!in || !out || in_len == 0) {
     return -1;
@@ -183,7 +183,7 @@ static int sn_payload_to_hex8(const uint8_t *in, uint16_t in_len, uint8_t out[8]
 #ifndef APP_MSG_USER_CUSTOM_TONEPLAY
 #define APP_MSG_USER_CUSTOM_TONEPLAY 6
 
-#define UPDATA_SN_AES_KEY    1 // enable SN/AES key update from MCU
+#define UPDATA_SN_AES_KEY    0 // enable SN/AES key update from MCU
 
 // UART->APP 音效播放消息重试（避免消息队列满时丢失）
 #define TONEPLAY_RETRY_MAX         5
@@ -1006,25 +1006,14 @@ static void uart1_sync_demo(void *p) {
           set_mcu_for_volume_change(uart_data[1]);
         }
 
-        if (uart_protocol_id == 0x00F4) { // 把uart_data的值 1和2 转化为int类型
-          // tone_id 使用BCD编码（例如：00 28 -> 28，01 11 -> 111）
+          if (uart_protocol_id == 0x00F4) { // 把uart_data的值 1和2 转化为int类型（使用原始 16-bit 大端）
           if (data_length >= 2) {
-            u16 bcd = ((u16)uart_data[0] << 8) | uart_data[1];
-            u8 d3 = (bcd >> 12) & 0x0F;
-            u8 d2 = (bcd >> 8) & 0x0F;
-            u8 d1 = (bcd >> 4) & 0x0F;
-            u8 d0 = (bcd >> 0) & 0x0F;
-            int tone_id;
-            if (d3 <= 9 && d2 <= 9 && d1 <= 9 && d0 <= 9) {
-              tone_id = d3 * 1000 + d2 * 100 + d1 * 10 + d0;
-            } else {
-              // 非BCD数据则按原始16bit数值处理
-              tone_id = (int)bcd;
-            }
+            u16 code = ((u16)uart_data[0] << 8) | uart_data[1];
+            int tone_id = (int)code;
+            UART1_IO_LOG("0x00F4: parsed tone_id raw=0x%04X (%d)\n", code, tone_id);
 
             // 统一走 APP_MSG_USER_TONPLAY；自定义音效优先逻辑已合并到 bt.c 的 case 5
-            int ret  = 0 ; 
-            ret = app_send_message(APP_MSG_USER_TONPLAY, tone_id);
+            int ret = app_send_message(APP_MSG_USER_TONPLAY, tone_id);
             if (ret == 0) {
               g_toneplay_pending = false;
               g_toneplay_retry_count = 0;

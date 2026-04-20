@@ -932,20 +932,10 @@ int user_tone_play_by_selection(uint8_t tone_type, uint16_t default_tone_id, u8 
   printf("[TONE_PLAY] tone_type=%u: playing DEFAULT tone (id=%u) via UART 0x00F4\n", 
          tone_type, default_tone_id);
   
-  // 构建 BCD 编码的 tone_id
+  // 构建原始 16-bit 大端编码的 tone_id（与枚举保持一致）
   uint8_t data[2];
-  // 将 tone_id 转换为 BCD 编码
-  // 例如: 28 -> 0x00, 0x28; 111 -> 0x01, 0x11
-  uint16_t bcd = 0;
-  uint16_t val = default_tone_id;
-  int shift = 0;
-  while (val > 0 && shift < 16) {
-    bcd |= ((val % 10) << shift);
-    val /= 10;
-    shift += 4;
-  }
-  data[0] = (bcd >> 8) & 0xFF;
-  data[1] = bcd & 0xFF;
+  data[0] = (default_tone_id >> 8) & 0xFF;
+  data[1] = default_tone_id & 0xFF;
   
   int ret = uart1_send_toMCU(0x00F4, data, 2);
   if (ret >= 0) {

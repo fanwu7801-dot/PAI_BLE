@@ -183,13 +183,22 @@ BT_USER_PRIV_VAR bt_user_priv_var;
  * @retval {placeholder}  
  * @retval {placeholder}  
 *******************************************************/
+// 将伪 BCD 编码的 16-bit 值转换为十进制序号
+// 例如: 0x0012 → 12, 0x0019 → 19, 0x0028 → 28, 0x0100 → 100
+static int bcd16_to_dec(u16 bcd)
+{
+    int d3 = (bcd >> 12) & 0x0F;
+    int d2 = (bcd >> 8) & 0x0F;
+    int d1 = (bcd >> 4) & 0x0F;
+    int d0 = (bcd >> 0) & 0x0F;
+    return d3 * 1000 + d2 * 100 + d1 * 10 + d0;
+}
+
 static bool bt_tone_case_to_custom_type(int case_id, uint8_t *tone_type_out)
 {
     if (!tone_type_out) {
         return false;
     }
-
-#define BCD_TO_DEC_4(bcd) (((((bcd) >> 12) & 0x0F) * 1000) + ((((bcd) >> 8) & 0x0F) * 100) + ((((bcd) >> 4) & 0x0F) * 10) + (((bcd) >> 0) & 0x0F))
 
     // 特殊处理：case_id 46 不参与自定义音效映射，避免边撑感应误走“告警自定义音效”
     if (case_id == 46) {
@@ -197,52 +206,52 @@ static bool bt_tone_case_to_custom_type(int case_id, uint8_t *tone_type_out)
         return false;
     }
 
-    // 用 if/else 代替 switch-case：部分 tone_user_table 的 BCD 值可能重复，switch 会编译失败
-    if (case_id == BCD_TO_DEC_4(Power_on_01) ||
-        case_id == BCD_TO_DEC_4(Power_on_02) ||
-        case_id == BCD_TO_DEC_4(Power_on_03) ||
-        case_id == BCD_TO_DEC_4(Power_on_04)) {
+    // case_id 是十进制行号（raw 大端解析后的值），枚举是伪BCD编码
+    // 比较时需将枚举做 bcd16_to_dec 转换
+    if (case_id == bcd16_to_dec(Power_on_01) ||
+        case_id == bcd16_to_dec(Power_on_02) ||
+        case_id == bcd16_to_dec(Power_on_03) ||
+        case_id == bcd16_to_dec(Power_on_04)) {
         *tone_type_out = 0;
         log_info("bt_tone_case_to_custom_type: case_id %d 映射到自定义音效类型0（开机）\n", case_id);
         return true;
     }
 
-    if (case_id == BCD_TO_DEC_4(Power_off_01) ||
-        case_id == BCD_TO_DEC_4(Power_off_02) ||
-        case_id == BCD_TO_DEC_4(Power_off_03) ||
-        case_id == BCD_TO_DEC_4(Power_off_04)) {
+    if (case_id == bcd16_to_dec(Power_off_01) ||
+        case_id == bcd16_to_dec(Power_off_02) ||
+        case_id == bcd16_to_dec(Power_off_03) ||
+        case_id == bcd16_to_dec(Power_off_04)) {
         *tone_type_out = 1;
         log_info("bt_tone_case_to_custom_type: case_id %d 映射到自定义音效类型1（关机）\n", case_id);
         return true;
     }
 
-    if (case_id == BCD_TO_DEC_4(Displacement_alarm_01) ||
-        case_id == BCD_TO_DEC_4(Displacement_alarm_02) ||
-        case_id == BCD_TO_DEC_4(Displacement_alarm_03) ||
-        case_id == BCD_TO_DEC_4(Displacement_alarm_04) ||
-        case_id == BCD_TO_DEC_4(burglar_alarm_01) ||
-        case_id == BCD_TO_DEC_4(burglar_alarm_02) ||
-        case_id == BCD_TO_DEC_4(burglar_alarm_03) ||
-        case_id == BCD_TO_DEC_4(burglar_alarm_04) ||
-        case_id == BCD_TO_DEC_4(Overfilling_alarm_01) ||
-        case_id == BCD_TO_DEC_4(Overfilling_alarm_02) ||
-        case_id == BCD_TO_DEC_4(Overfilling_alarm_03) ||
-        case_id == BCD_TO_DEC_4(Overfilling_alarm_04) ||
-        case_id == BCD_TO_DEC_4(General_Warning_01) ||
-        case_id == BCD_TO_DEC_4(General_Warning_02) ||
-        case_id == BCD_TO_DEC_4(General_Warning_03) ||
-        case_id == BCD_TO_DEC_4(General_Warning_04) ||
-        case_id == BCD_TO_DEC_4(fifteen_size_warning_01) ||
-        case_id == BCD_TO_DEC_4(fifteen_size_warning_02) ||
-        case_id == BCD_TO_DEC_4(fifteen_size_warning_03) ||
-        case_id == BCD_TO_DEC_4(fifteen_size_warning_04)
+    if (case_id == bcd16_to_dec(Displacement_alarm_01) ||
+        case_id == bcd16_to_dec(Displacement_alarm_02) ||
+        case_id == bcd16_to_dec(Displacement_alarm_03) ||
+        case_id == bcd16_to_dec(Displacement_alarm_04) ||
+        case_id == bcd16_to_dec(burglar_alarm_01) ||
+        case_id == bcd16_to_dec(burglar_alarm_02) ||
+        case_id == bcd16_to_dec(burglar_alarm_03) ||
+        case_id == bcd16_to_dec(burglar_alarm_04) ||
+        case_id == bcd16_to_dec(Overfilling_alarm_01) ||
+        case_id == bcd16_to_dec(Overfilling_alarm_02) ||
+        case_id == bcd16_to_dec(Overfilling_alarm_03) ||
+        case_id == bcd16_to_dec(Overfilling_alarm_04) ||
+        case_id == bcd16_to_dec(General_Warning_01) ||
+        case_id == bcd16_to_dec(General_Warning_02) ||
+        case_id == bcd16_to_dec(General_Warning_03) ||
+        case_id == bcd16_to_dec(General_Warning_04) ||
+        case_id == bcd16_to_dec(fifteen_size_warning_01) ||
+        case_id == bcd16_to_dec(fifteen_size_warning_02) ||
+        case_id == bcd16_to_dec(fifteen_size_warning_03) ||
+        case_id == bcd16_to_dec(fifteen_size_warning_04)
     ) {
         *tone_type_out = 2;
-        log_info("⚠️⚠️⚠️ case_id=%d 被识别为报警音效！映射到类型2！（BCD值：17/46/74/90/18/47/75/91/19/48/70/92/25/54/76/92/26/55/77/93）\n", case_id);
+        log_info("⚠️⚠️⚠️ case_id=%d 被识别为报警音效！映射到类型2！\n", case_id);
         return true;
     }
     return false;
-#undef BCD_TO_DEC_4
 }
 
 
@@ -1676,9 +1685,10 @@ void app_bt_task()
                         log_info("音效播放: ✓ case_id %d 未映射自定义音效，使用默认音效\n", case_id);
                     }
 
-                    // 协议里的 case_id 直接表示音频编号：
-                    // 0 -> tone0.*, 19 -> tone19.*
-                    int user_idx = IDEX_TONE_USER_001 + case_id;
+                    // case_id 已是十进制行号，-1 得到 0-based 偏移
+                    // 例如: case_id=19 → offset=18 → IDEX_TONE_USER_019 (tone18.* 倾倒报警)
+                    int user_idx = IDEX_TONE_USER_001 + case_id - 1;
+                    log_info("音效播放: case_id=%d → tone_table偏移=%d\n", case_id, case_id - 1);
                     if (user_idx >= 0 && user_idx < tone_table_size && tone_table[user_idx]) {
                         log_info("音效播放: 播放默认音效，索引=%d\n", user_idx);
                         // 默认音效播放同样加互斥保护
@@ -1711,7 +1721,7 @@ void app_bt_task()
                         bt_tone_pa_ctrl_set(0);
                         // 回退原来的内置提示音
                         if (case_id >= 0 && case_id < 122) {
-                            int user_idx = IDEX_TONE_USER_001 + case_id;
+                            int user_idx = IDEX_TONE_USER_001 + case_id - 1;
                             bt_tone_pa_ctrl_set(1);
                             int ret = tone_play_with_callback_by_name((char *)tone_table[user_idx], 1, bt_tone_play_end_cb, NULL);
                             if (ret < 0) {
