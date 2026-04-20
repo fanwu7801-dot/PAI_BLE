@@ -246,17 +246,23 @@ __attribute__((weak)) void reset_passkey_cb(u32 *key)
 
 static volatile u8 g_pair_pending_valid = 0;
 static u32 g_pair_pending_passkey = 0;
+static u8 g_pair_pending_code3[3] = {0};
 
 __attribute__((weak)) void smbox_pairing_set_pending(u16 conn_handle, const uint8_t code3[3], u32 passkey)
 {
   (void)conn_handle;
-  (void)code3;
   if (passkey > 0 && passkey <= 999999) {
     g_pair_pending_passkey = passkey;
     g_pair_pending_valid = 1;
+    if (code3) {
+      memcpy(g_pair_pending_code3, code3, sizeof(g_pair_pending_code3));
+    } else {
+      memset(g_pair_pending_code3, 0, sizeof(g_pair_pending_code3));
+    }
   } else {
     g_pair_pending_passkey = 0;
     g_pair_pending_valid = 0;
+    memset(g_pair_pending_code3, 0, sizeof(g_pair_pending_code3));
   }
 }
 
@@ -273,6 +279,7 @@ __attribute__((weak)) void smbox_pairing_clear_pending(void)
 {
   g_pair_pending_valid = 0;
   g_pair_pending_passkey = 0;
+  memset(g_pair_pending_code3, 0, sizeof(g_pair_pending_code3));
 }
 
 uint8_t ble_proto_ble_pair_req_Proc(uint16_t protocol_id)
@@ -399,8 +406,73 @@ void smbox_pairing_init(void)
 
 void smbox_pairing_on_pair_process(u8 subcode)
 {
-  (void)subcode;
-  log_info("smbox_pairing_on_pair_process stub\n");
+  log_info("smbox_pairing_on_pair_process: subcode=0x%02x\n", subcode);
+
+  if (subcode != SM_EVENT_PAIR_SUB_ADD_LIST_SUCCESS) {
+    return;
+  }
+
+  /* 配对成功，保存配对码 + MAC 到 flash */
+  if (!g_pair_pending_valid) {
+    log_info("pair save: no pending data\n");
+    return;
+  }
+
+  u8 id_addr[6] = {0};
+  if (!ble_list_get_last_id_addr(id_addr)) {
+    log_info("pair save: get last id addr failed\n");
+    return;
+  }
+
+  /* record: [配对码3字节][MAC地址6字节] */
+  u8 record[9] = {0};
+  memcpy(record, g_pair_pending_code3, 3);
+  memcpy(record + 3, id_addr, 6);
+
+  const u32 config_ids[] = {
+    CFG_PHONE_BLE_KEY_DELETE_ID_1,
+    CFG_PHONE_BLE_KEY_DELETE_ID_2,
+    CFG_PHONE_BLE_KEY_DELETE_ID_3,
+  };
+  const int slot_cnt = sizeof(config_ids) / sizeof(config_ids[0]);
+
+  int chosen = -1;
+  for (int i = 0; i < slot_cnt; i++) {
+    u8 tmp[9] = {0};
+    int r = syscfg_read(config_ids[i], tmp, sizeof(tmp));
+    /* MAC 地址相同则覆盖原槽位 */
+    if (r > 0 && memcmp(tmp + 3, id_addr, 6) == 0) {
+      chosen = i;
+      break;
+    }
+    /* 记录第一个空槽 */
+    if (chosen < 0 && (r <= 0 || is_all_zero(tmp, sizeof(tmp)))) {
+      chosen = i;
+    }
+  }
+
+  if (chosen < 0) {
+    chosen = 0; /* 满了则覆盖第一个 */
+  }
+
+  syscfg_write(config_ids[chosen], record, sizeof(record));
+
+  /* 重新统计可用数量 */
+  u8 count = 0;
+  for (int i = 0; i < slot_cnt; i++) {
+    u8 tmp[9] = {0};
+    int r = syscfg_read(config_ids[i], tmp, sizeof(tmp));
+    if (r > 0 && !is_all_zero(tmp, sizeof(tmp))) {
+      count++;
+    }
+  }
+  syscfg_write(CFG_PHONE_BLE_KEY_USABLE_NUM, &count, sizeof(count));
+
+  log_info("pair save ok: slot=%d code=%02u%02u%02u count=%d\n",
+           chosen, g_pair_pending_code3[0], g_pair_pending_code3[1],
+           g_pair_pending_code3[2], count);
+
+  smbox_pairing_clear_pending();
 }
 
 int seamless_unlock_load_targets_from_syscfg(uint8_t *mac_list, uint8_t *mac_cnt)
