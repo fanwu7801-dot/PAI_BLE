@@ -66,7 +66,7 @@ extern void ble_connection_lowpower_ctrl(u8 connected);
 
 
 #ifndef BLE_AES_KEY_FLASH_UNIT_TEST
-#define BLE_AES_KEY_FLASH_UNIT_TEST  1
+#define BLE_AES_KEY_FLASH_UNIT_TEST  0
 #endif
 
 #if TCFG_CAT1_MODULE_UPDATE_ENABLE
@@ -1315,6 +1315,7 @@ static void cbk_sm_packet_handler(void *_hdl, uint8_t packet_type, uint16_t chan
 
             /* 0x0037: 配对成功后落�?配对�?MAC) */
             smbox_pairing_on_pair_process(event->data[0]);
+            uart_send_ble_key_list(0x00FB);// 发送手机端配对列表，供APP使用
             break;
         }
         break;

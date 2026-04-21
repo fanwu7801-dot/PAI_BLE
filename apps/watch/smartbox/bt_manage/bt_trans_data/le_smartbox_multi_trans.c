@@ -496,7 +496,7 @@ static void smbox_pairing_clear_pending(void)
     memset(g_pair_pending_code3, 0, sizeof(g_pair_pending_code3));
 }
 
-static void smbox_pairing_save_code_and_mac(void)
+void smbox_pairing_save_code_and_mac(void)
 {
     if (!g_pair_pending_valid) {
         return;

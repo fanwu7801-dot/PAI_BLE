@@ -412,12 +412,6 @@ void smbox_pairing_on_pair_process(u8 subcode)
     return;
   }
 
-  /* 配对成功，保存配对码 + MAC 到 flash */
-  if (!g_pair_pending_valid) {
-    log_info("pair save: no pending data\n");
-    return;
-  }
-
   u8 id_addr[6] = {0};
   if (!ble_list_get_last_id_addr(id_addr)) {
     log_info("pair save: get last id addr failed\n");
@@ -426,8 +420,16 @@ void smbox_pairing_on_pair_process(u8 subcode)
 
   /* record: [配对码3字节][MAC地址6字节] */
   u8 record[9] = {0};
-  memcpy(record, g_pair_pending_code3, 3);
+  if (g_pair_pending_valid) {
+    memcpy(record, g_pair_pending_code3, 3);
+  }
+  /* 无 pending 时 record 前3字节保持全0（Just Works 无 passkey） */
   memcpy(record + 3, id_addr, 6);
+
+  log_info("pair save: pending=%d mac=%02x:%02x:%02x:%02x:%02x:%02x code=%02u%02u%02u\n",
+           g_pair_pending_valid,
+           id_addr[0], id_addr[1], id_addr[2], id_addr[3], id_addr[4], id_addr[5],
+           record[0], record[1], record[2]);
 
   const u32 config_ids[] = {
     CFG_PHONE_BLE_KEY_DELETE_ID_1,
@@ -471,6 +473,9 @@ void smbox_pairing_on_pair_process(u8 subcode)
   log_info("pair save ok: slot=%d code=%02u%02u%02u count=%d\n",
            chosen, g_pair_pending_code3[0], g_pair_pending_code3[1],
            g_pair_pending_code3[2], count);
+
+  /* 保存成功后，给 MCU 发送最新钥匙列表 */
+  send_ble_key_list(0x00FB);
 
   smbox_pairing_clear_pending();
 }
@@ -3115,7 +3120,7 @@ key_list_send:
   uart1_send_toMCU(protocol_id, key_list_buffer, offset);
 
   /* 回复 APP：通过 f7f1 notify 下发 */
-  ble_reply_to_app_f7f1_post(protocol_id, key_list_buffer, offset);
+  ble_reply_to_app_f7f1_post(0x0038, key_list_buffer, offset);
 }
 //======================= 下发车辆密码钥匙 =======================
 

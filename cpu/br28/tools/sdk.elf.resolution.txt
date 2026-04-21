@@ -7794,12 +7794,12 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,connect_last_device_from_vm,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,sm_just_works_confirm,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,smbox_pairing_on_pair_process,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,uart_send_ble_key_list,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,app_ble_disconnect,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,app_ble_adv_enable,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,app_ble_set_adv_param,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,app_ble_adv_data_set,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,app_ble_rsp_data_set,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,syscfg_write,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,puts,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,le_multi_smartbox_ble_hd,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,select_app1_or_app2,pl
@@ -7841,6 +7841,11 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,fill_protocol_set_uart_passkey,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,smbox_pairing_init,plx
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,smbox_pairing_on_pair_process,plx
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ble_list_get_last_id_addr,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,syscfg_read,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,memcmp,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,syscfg_write,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,send_ble_key_list,plx
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,seamless_unlock_load_targets_from_syscfg,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,set_volume_instruct,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,get_max_sys_vol,l
@@ -7880,12 +7885,9 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,os_time_dly,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,uart1_reset_retry_state,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,v5_1_function_control,pl
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,send_ble_key_list,plx
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ble_key_peripheral_send_instruct_ext,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,param_set_v5_2_instruct,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,fill_protocol_ble_reply_f7f1,pl
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,syscfg_read,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,syscfg_write,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,add_NFC_instruct,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,get_vehice_music_infromation_instruct_ext,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,select_tone_instruct_ext,pl
@@ -7901,7 +7903,6 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ota_test_abort,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,sys_timeout_add,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,att_server_request_can_send_now_event,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,memcmp,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ble_list_delete_device,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,custom_tone_meta_cfg_id,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,strlen,l
@@ -7999,6 +8000,8 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart1_init,plx
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,task_create,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart1_send,pl
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart_send_ble_key_list,pl
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,syscfg_read,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,calculateCRC16,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart_rx_ptr_analysis,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart1_parse_packet,pl
@@ -8007,11 +8010,10 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,dma_malloc,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart_init_new,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart_dma_init,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,syscfg_read,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart_dump,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart_recv_bytes,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,memcmp,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,syscfg_write,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,memcmp,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,ble_pairing_set_uart_passkey,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,fill_protocol_set_uart_passkey,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,dual_ota_app_data_deal,l
@@ -8029,6 +8031,7 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,get_max_sys_vol,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,app_audio_set_volume,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,app_task_put_usr_msg,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,le_smartbox_ble_adv_restart,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,uart_send_bytes_nonblock,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,puts,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,g_uart_sn_valid,plx

@@ -201,11 +201,6 @@ static bool bt_tone_case_to_custom_type(int case_id, uint8_t *tone_type_out)
     }
 
     // 特殊处理：case_id 46 不参与自定义音效映射，避免边撑感应误走“告警自定义音效”
-    if (case_id == 46) {
-        log_info("bt_tone_case_to_custom_type: case_id 46 skip custom mapping\n");
-        return false;
-    }
-
     // case_id 是十进制行号（raw 大端解析后的值），枚举是伪BCD编码
     // 比较时需将枚举做 bcd16_to_dec 转换
     if (case_id == bcd16_to_dec(Power_on_01) ||
@@ -1614,7 +1609,7 @@ void app_bt_task()
                 log_info("处理UART读取密钥列表消息\n");
                 // 处理读取密钥列表逻辑
                 extern void send_ble_key_list(uint16_t protocol_id);
-                send_ble_key_list(0x0038);      
+                send_ble_key_list(0x00FB);      
                 break;
             case 5: // APP_MSG_USER_TONPLAY
                 log_info("音乐播放的逻辑\n");

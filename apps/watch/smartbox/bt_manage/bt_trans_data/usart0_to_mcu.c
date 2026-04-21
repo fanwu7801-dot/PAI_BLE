@@ -38,7 +38,7 @@
 #undef bool
 #endif
 
-static void uart_send_ble_key_list(uint16_t protocol_id);
+void uart_send_ble_key_list(uint16_t protocol_id);       
 static void uart_send_password_key_list(uint16_t protocol_id);
 static void uart1_pending_tx_try(void);
 extern int dual_ota_app_data_deal(u32 msg, u8 *buf, u32 len);
@@ -183,7 +183,7 @@ static int is_all_zero(const uint8_t *data, uint16_t len)
 #ifndef APP_MSG_USER_CUSTOM_TONEPLAY
 #define APP_MSG_USER_CUSTOM_TONEPLAY 6
 
-#define UPDATA_SN_AES_KEY    0 // enable SN/AES key update from MCU
+#define UPDATA_SN_AES_KEY    1 // enable SN/AES key update from MCU
 
 // UART->APP 音效播放消息重试（避免消息队列满时丢失）
 #define TONEPLAY_RETRY_MAX         5
@@ -1409,6 +1409,8 @@ static void uart1_sync_demo(void *p) {
               printf("密码钥匙暂不支持添加\n");
             }
           }
+            uart_send_ble_key_list(0x00FB);
+          
         }
         
         if (uart_protocol_id == 0x00F9)
@@ -1990,18 +1992,18 @@ void uart1_send(u8 *data, u16 len) {
 
 
 
-static void uart_send_ble_key_list(uint16_t protocol_id) {
+void uart_send_ble_key_list(uint16_t protocol_id) {       
   printf("[UART] uart_send_ble_key_list: 发送蓝牙钥匙列表\n");
   
-  // 00FB协议防抖：避免短时间内重复发送
-  if (protocol_id == 0x00FB) {
-    u32 current_time = jiffies;
-    if (current_time - g_last_send_key_list_time < 100) { // 1秒内不重复发送
-      printf("[UART] 00FB协议发送过于频繁，跳过\n");
-      return;
-    }
-    g_last_send_key_list_time = current_time;
-  }
+  // // 00FB协议防抖：避免短时间内重复发送
+  // if (protocol_id == 0x00FB) {
+  //   u32 current_time = jiffies;
+  //   if (current_time - g_last_send_key_list_time < 100) { // 1秒内不重复发送
+  //     printf("[UART] 00FB协议发送过于频繁，跳过\n");
+  //     return;
+  //   }
+  //   g_last_send_key_list_time = current_time;
+  // }
   
   static uint8_t key_list_buffer[269];
   memset(key_list_buffer, 0, sizeof(key_list_buffer));
