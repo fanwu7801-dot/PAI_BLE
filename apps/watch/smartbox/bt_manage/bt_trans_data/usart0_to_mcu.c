@@ -992,7 +992,7 @@ static void uart1_sync_demo(void *p) {
         UART1_IO_LOG("protocol_id:0x%04X\n", uart_protocol_id);
 
         if (uart_data != NULL) {
-        UART1_IO_LOG("接收到的�?);
+        UART1_IO_LOG("recv data:\n");
         UART1_IO_DUMP(uart_data, data_length);
 
         /*todo:新添蓝牙设置音量大小逻辑*/

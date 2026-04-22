@@ -496,7 +496,7 @@ void smbox_pairing_on_pair_process(u8 subcode)
            g_pair_pending_code3[2], count);
 
   /* 保存成功后，给 MCU 发送最新钥匙列表 */
-  send_ble_key_list(0x00FB);
+  // send_ble_key_list(0x00FB);
 
   smbox_pairing_clear_pending();
 }
