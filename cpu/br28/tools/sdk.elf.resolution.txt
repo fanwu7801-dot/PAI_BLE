@@ -7839,6 +7839,7 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,le_multi_app_send_user_data,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,sm_api_request_pairing,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,fill_protocol_set_uart_passkey,pl
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ble_pairing_consume_uart_passkey,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,smbox_pairing_init,plx
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,smbox_pairing_on_pair_process,plx
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ble_list_get_last_id_addr,l
@@ -7935,7 +7936,6 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,uart_data,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,data_length,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,uart_protocol_id,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,jiffies,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,mac_address_exists_gbk,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,no_peripheral_key_space_gbk,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ble_key_peripheral,pl

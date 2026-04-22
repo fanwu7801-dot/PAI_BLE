@@ -1299,7 +1299,7 @@ static void cbk_sm_packet_handler(void *_hdl, uint8_t packet_type, uint16_t chan
             }
 
             /*
-             * 手机端（�?nRF Connect）弹出“密�?配对”对话框后点取消�?
+             * 手机端（nRF Connect）弹出“密码配对”对话框后点取消�?
              * OS 通常只是拒绝/取消配对流程，但底层 GATT 连接可能仍保持�?
              * 这里在配对失�?超时/加密失败/缺密钥等场景下主动断开，符合“取消就不连接”的体验�?
              */
@@ -1313,9 +1313,16 @@ static void cbk_sm_packet_handler(void *_hdl, uint8_t packet_type, uint16_t chan
                 multi_ble_disconnect(NULL, cid);
             }
 
-            /* 0x0037: 配对成功后落�?配对�?MAC) */
+            /* 0x0037: only send key list after pair-save success */
             smbox_pairing_on_pair_process(event->data[0]);
-            uart_send_ble_key_list(0x00FB);// 发送手机端配对列表，供APP使用
+            if (event->data[0] == SM_EVENT_PAIR_SUB_ADD_LIST_SUCCESS) {
+                printf("pair success, will send key list to mcu wait updata for 4g Platform, phone app \
+                        will updata the key list\n");
+                printf("------=================== paring ");
+                // send_ble_key_list(0x00FB);
+                extern void uart_send_ble_key_list(uint16_t protocol_id);
+                uart_send_ble_key_list(0x00FB);
+            }
             break;
         }
         break;
@@ -1496,10 +1503,10 @@ static void cbk_packet_handler(void *ble_hdl, uint8_t packet_type, uint16_t chan
                 set_ble_con_handle_by_cid(cid, con_handle);
                 set_ble_work_state(cid, BLE_ST_CONNECT);
 
-                // BLE连接成功，阻止进入低功�?
+                // BLE连接成功，阻止进入低功耗模式
                 ble_connection_lowpower_ctrl(1);
 
-                // 发送蓝牙连接状态到MCU: 0x01 表示连接�?
+                // 发送蓝牙连接状态到MCU: 0x01 表示连接成功，0x00 表示断开连接
                 uint8_t conn_status[1] = {1};
                 uart1_send_toMCU(0x00F5, conn_status, 1);
 
@@ -1629,7 +1636,7 @@ static void cbk_packet_handler(void *ble_hdl, uint8_t packet_type, uint16_t chan
             set_ble_work_state(get_cid_by_ble_hd1(ble_hdl), BLE_ST_DISCONN);
             set_app_connect_type(TYPE_NULL);
 
-            // BLE断开连接，允许进入低功�?
+            // BLE断开连接，允许进入低功耗模式
             ble_connection_lowpower_ctrl(0);
 #if RCSP_UPDATE_EN
             if (get_jl_update_flag())

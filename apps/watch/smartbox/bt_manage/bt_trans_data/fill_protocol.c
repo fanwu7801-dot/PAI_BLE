@@ -311,10 +311,16 @@ uint8_t ble_proto_ble_pair_req_Proc(uint16_t protocol_id)
 
   /* 记录本次 passkey，供协议栈回调时使用，确保通知 APP 的是同一组数据 */
   uint8_t code3[3] = {0};
-  code3[0] = (uint8_t)(passkey / 10000);
-  code3[1] = (uint8_t)((passkey / 100) % 100);
-  code3[2] = (uint8_t)(passkey % 100);
+  /* BCD 编码：6位数字分3字节，每字节高4位+低4位各存1位十进制 */
+  code3[0] = (uint8_t)((((passkey / 100000) % 10) << 4) | ((passkey / 10000) % 10));
+  code3[1] = (uint8_t)((((passkey / 1000) % 10) << 4) | ((passkey / 100) % 10));
+  code3[2] = (uint8_t)((((passkey / 10) % 10) << 4) | (passkey % 10));
   smbox_pairing_set_pending(con, code3, passkey);
+  /* smbox_pairing_set_pending 可能被其他文件的强定义覆盖，
+   * 导致本文件的 static 变量未被更新，这里直接同步设置 */
+  g_pair_pending_valid = 1;
+  g_pair_pending_passkey = passkey;
+  memcpy(g_pair_pending_code3, code3, sizeof(g_pair_pending_code3));
 
   /* 组装配对状态 + 配对码（3 字节大端） */
   uint8_t pairing_state_buffer[4] = {0x01};
@@ -397,6 +403,21 @@ void fill_protocol_set_uart_passkey(uint32_t passkey)
   g_uart_pair_passkey = passkey;
   g_uart_pair_passkey_valid = 1;
   log_info("fill_protocol_set_uart_passkey set: %06u\n", passkey);
+}
+
+uint8_t ble_pairing_consume_uart_passkey(uint32_t *out_key)
+{
+  if (!out_key) {
+    return 0;
+  }
+  if (g_uart_pair_passkey_valid && g_uart_pair_passkey > 0 && g_uart_pair_passkey <= 999999) {
+    *out_key = g_uart_pair_passkey;
+    g_uart_pair_passkey_valid = 0;
+    g_uart_pair_passkey = 0;
+    log_info("ble_pairing_consume_uart_passkey: consumed %06u\n", *out_key);
+    return 1;
+  }
+  return 0;
 }
 
 void smbox_pairing_init(void)
@@ -2808,15 +2829,15 @@ static void send_data_to_ble(uint16_t instruct, uint16_t protocol_id,
 /* 记录最近一次发送0x00FB 钥匙列表的时间，1 秒内避免重复回复 */
 static u32 g_last_send_key_list_time = 0;
 void send_ble_key_list(uint16_t protocol_id) {
-  // 0x00FB 请求过于频繁时直接丢弃，避免重复回包
-  if (protocol_id == 0x00FB) {
-    u32 current_time = jiffies;
-    if (current_time - g_last_send_key_list_time < 100) { // 1 秒内不重复回包
-      log_info("[BLE] 00FB 协议发送过于频繁，已忽略\n");
-      return;
-    }
-    g_last_send_key_list_time = current_time;
-  }
+  // // 0x00FB 请求过于频繁时直接丢弃，避免重复回包
+  // if (protocol_id == 0x00FB) {
+  //   u32 current_time = jiffies;
+  //   if (current_time - g_last_send_key_list_time < 100) { // 1 秒内不重复回包
+  //     log_info("[BLE] 00FB 协议发送过于频繁，已忽略\n");
+  //     return;
+  //   }
+  //   g_last_send_key_list_time = current_time;
+  // }
 
   // uint8_t id_addr[6] = {0};save_MAC_address
   // ble_list_get_last_id_addr(id_addr);

@@ -13,14 +13,41 @@
                 "kind": "build",
                 "isDefault": true
             }
-        }
-        ,{
+        },
+        {
             "label": "clean",
             "type": "shell",
             "windows": {
                 "command": ".vscode/winmk.bat clean"
             },
             "command": "make clean -j`nproc`",
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "not_tone",
+            "type": "shell",
+            "windows": {
+                "command": "cpu/br28/tools/download/watch/download_not_tone.bat"
+            },
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "first_all",
+            "type": "shell",
+            "windows": {
+                "command": "cpu/br28/tools/download/watch/download_first_all.bat"
+            },
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "ota_with_tone",
+            "type": "shell",
+            "windows": {
+                "command": "cpu/br28/tools/download/watch/download_safe_keep_tone.bat"
+            },
             "problemMatcher": [],
             "group": "build"
         }

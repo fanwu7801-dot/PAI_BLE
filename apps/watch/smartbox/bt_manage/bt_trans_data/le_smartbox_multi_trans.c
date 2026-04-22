@@ -461,9 +461,10 @@ u32 smbox_pairing_generate_passkey(uint8_t code3[3])
         key = key - 999999;
     }
     if (code3) {
-        code3[0] = (u8)(key / 10000);
-        code3[1] = (u8)((key / 100) % 100);
-        code3[2] = (u8)(key % 100);
+        /* BCD 编码：6位数字分3字节，每字节高4位+低4位各存1位十进制 */
+        code3[0] = (u8)((((key / 100000) % 10) << 4) | ((key / 10000) % 10));
+        code3[1] = (u8)((((key / 1000) % 10) << 4) | ((key / 100) % 10));
+        code3[2] = (u8)((((key / 10) % 10) << 4) | (key % 10));
     }
     return key;
 }

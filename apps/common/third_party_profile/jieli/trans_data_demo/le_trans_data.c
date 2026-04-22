@@ -1008,7 +1008,15 @@ static void advertisements_setup_init()
 //passkey为6个数字组成，十万位、万位。。。。个位 各表示一个数字 高位不够为0
 static void reset_passkey_cb(u32 *key)
 {
-#if 1
+    /* 优先使用 UART 下发的 passkey（一次性消费） */
+    extern uint8_t ble_pairing_consume_uart_passkey(uint32_t *out_key);
+    uint32_t uart_key = 0;
+    if (ble_pairing_consume_uart_passkey(&uart_key)) {
+        *key = uart_key;
+        printf("set uart_passkey= %06u\n", *key);
+        return;
+    }
+
     u32 newkey = rand32();//获取随机数
 
     newkey &= 0xfffff;
@@ -1017,9 +1025,6 @@ static void reset_passkey_cb(u32 *key)
     }
     *key = newkey; //小于或等于六位数
     printf("set new_key= %06u\n", *key);
-#else
-    *key = 123456; //for debug
-#endif
 }
 
 void ble_sm_setup_init(io_capability_t io_type, u8 auth_req, uint8_t min_key_size, u8 security_en)
