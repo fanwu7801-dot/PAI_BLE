@@ -8016,6 +8016,7 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,memcmp,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,ble_pairing_set_uart_passkey,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,fill_protocol_set_uart_passkey,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,ble_list_delete_device,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,dual_ota_app_data_deal,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,fopen,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/usart0_to_mcu.c.o,fmk_dir,l
