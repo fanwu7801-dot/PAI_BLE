@@ -68,6 +68,19 @@ static int is_all_zero(const uint8_t *data, uint16_t len)
   return 1;
 }
 
+
+static int is_all_ff(const uint8_t *data, uint16_t len)
+{
+  if (data == NULL || len == 0) {
+    return 1;
+  }
+  for (uint16_t i = 0; i < len; i++) {
+    if (data[i] != 0xFF) {
+      return 0;
+    }
+  }
+  return 1;
+}
  int sn_payload_to_hex8(const uint8_t *in, uint16_t in_len, uint8_t out[8])
 {
   if (!in || !out || in_len == 0) {
@@ -1992,43 +2005,43 @@ void uart1_send(u8 *data, u16 len) {
 
 
 
-void uart_send_ble_key_list(uint16_t protocol_id) {       
+void uart_send_ble_key_list(uint16_t protocol_id) {
   printf("[UART] uart_send_ble_key_list: 发送蓝牙钥匙列表\n");
-  
-  // // 00FB协议防抖：避免短时间内重复发�?
-  // if (protocol_id == 0x00FB) {
-  //   u32 current_time = jiffies;
-  //   if (current_time - g_last_send_key_list_time < 100) { // 1秒内不重复发�?
-  //     printf("[UART] 00FB协议发送过于频繁，跳过\n");
-  //     return;
-  //   }
-  //   g_last_send_key_list_time = current_time;
-  // }
-  
+
   static uint8_t key_list_buffer[269];
   memset(key_list_buffer, 0, sizeof(key_list_buffer));
   uint16_t offset = 0;
-  
+
   uint8_t phone_ble_key_usable_num = 0;
   uint8_t ble_key_peripheral_usable_num = 0;
-  
+  uint8_t ble_key_peripheral_actual_num = 0;
+  uint8_t ble_peripheral_valid[4] = {0};
+  uint8_t ble_peripheral_slots[4][28] = {0};
+
   syscfg_read(CFG_PHONE_BLE_KEY_USABLE_NUM, &phone_ble_key_usable_num, 1);
   syscfg_read(CFG_BLE_KEY_PERIPHERAL_USABLE, &ble_key_peripheral_usable_num, 1);
-  
+
+  for (uint8_t i = 0; i < 4; i++) {
+    int ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_1 + i, ble_peripheral_slots[i], 28);
+    if (ret > 0 && !is_all_zero(ble_peripheral_slots[i], 6) && !is_all_ff(ble_peripheral_slots[i], 6)) {
+      ble_peripheral_valid[i] = 1;
+      ble_key_peripheral_actual_num++;
+    }
+  }
+
   printf("phone_ble_key_usable_num: %d\n", phone_ble_key_usable_num);
   printf("ble_key_peripheral_usable_num: %d\n", ble_key_peripheral_usable_num);
-  
-  // 计算总钥匙串数量，最大为5
-  uint8_t total_key_num = phone_ble_key_usable_num + ble_key_peripheral_usable_num;
+  printf("ble_key_peripheral_actual_num: %d\n", ble_key_peripheral_actual_num);
+
+  uint8_t total_key_num = phone_ble_key_usable_num + ble_key_peripheral_actual_num;
   if (total_key_num > 5) {
     total_key_num = 5;
     printf("总钥匙串数量超过5，限制为5\n");
   }
-  
-  // 第一个data字段为钥匙串数量
+
   key_list_buffer[offset++] = total_key_num;
   printf("总钥匙串数量: %d\n", total_key_num);
-  
+
   uint32_t config_ids[] = {
       CFG_PHONE_BLE_KEY_DELETE_ID_1,
       CFG_PHONE_BLE_KEY_DELETE_ID_2,
@@ -2036,7 +2049,7 @@ void uart_send_ble_key_list(uint16_t protocol_id) {
   };
   const uint16_t slot_cnt = sizeof(config_ids) / sizeof(config_ids[0]);
   uint8_t phone_ble_key_data[9] = {0};
-  
+
   for (uint16_t i = 0; i < slot_cnt; i++) {
     memset(phone_ble_key_data, 0, sizeof(phone_ble_key_data));
     int ret = syscfg_read(config_ids[i], phone_ble_key_data, sizeof(phone_ble_key_data));
@@ -2044,18 +2057,17 @@ void uart_send_ble_key_list(uint16_t protocol_id) {
       if (offset + 14 > sizeof(key_list_buffer)) {
         goto key_list_send;
       }
-      
+
       key_list_buffer[offset++] = 0x00;
       key_list_buffer[offset++] = 0x00;
       key_list_buffer[offset++] = 0x00;
       key_list_buffer[offset++] = 0x01;
-      /* record[9] = [配对�?B][MAC6B]，MAC �?data[3..8]，配对码�?data[0..2] */
       memcpy(key_list_buffer + offset, phone_ble_key_data + 3, 6);
       offset += 6;
       memcpy(key_list_buffer + offset, phone_ble_key_data, 3);
       offset += 3;
       key_list_buffer[offset++] = 0x00;
-      
+
       printf("手机蓝牙钥匙 %d: 设备类型=0x00000001, MAC=%02X:%02X:%02X:%02X:%02X:%02X, 密码=%02X%02X%02X\n",
              (int)(i + 1),
              phone_ble_key_data[3], phone_ble_key_data[4], phone_ble_key_data[5],
@@ -2063,100 +2075,35 @@ void uart_send_ble_key_list(uint16_t protocol_id) {
              phone_ble_key_data[0], phone_ble_key_data[1], phone_ble_key_data[2]);
     }
   }
-  
-  if (ble_key_peripheral_usable_num > 0) {
-    if (ble_key_peripheral_usable_num >= 1) {
-      uint8_t ble_peripheral_data[28] = {0};
-      int ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_1, ble_peripheral_data, 28);
-      if (ret > 0 && !is_all_zero(ble_peripheral_data, 6)) {
-        if (offset + 14 > sizeof(key_list_buffer)) {
-          goto key_list_send;
-        }
-        
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x02;
-        memcpy(key_list_buffer + offset, ble_peripheral_data, 6);
-        offset += 6;
-        memcpy(key_list_buffer + offset, ble_peripheral_data + 6, 4);
-        offset += 4;
-        
-        printf("外设蓝牙钥匙 1: 设备类型=0x00000002, MAC=%02X:%02X:%02X:%02X:%02X:%02X, 密码=%02X%02X%02X%02X\n",
-               ble_peripheral_data[0], ble_peripheral_data[1],
-               ble_peripheral_data[2], ble_peripheral_data[3],
-               ble_peripheral_data[4], ble_peripheral_data[5],
-               ble_peripheral_data[6], ble_peripheral_data[7],
-               ble_peripheral_data[8], ble_peripheral_data[9]);
-      }
+
+  for (uint8_t i = 0; i < 4; i++) {
+    if (!ble_peripheral_valid[i]) {
+      continue;
     }
-    
-    if (ble_key_peripheral_usable_num >= 2) {
-      uint8_t ble_peripheral_data[28] = {0};
-      int ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_2, ble_peripheral_data, 28);
-      if (ret > 0 && !is_all_zero(ble_peripheral_data, 6)) {
-        if (offset + 14 > sizeof(key_list_buffer)) {
-          goto key_list_send;
-        }
-        
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x02;
-        memcpy(key_list_buffer + offset, ble_peripheral_data, 6);
-        offset += 6;
-        memcpy(key_list_buffer + offset, ble_peripheral_data + 6, 4);
-        offset += 4;
-        
-        printf("外设蓝牙钥匙 2\n");
-      }
+    if (offset + 14 > sizeof(key_list_buffer)) {
+      goto key_list_send;
     }
-    
-    if (ble_key_peripheral_usable_num >= 3) {
-      uint8_t ble_peripheral_data[28] = {0};
-      int ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_3, ble_peripheral_data, 28);
-      if (ret > 0 && !is_all_zero(ble_peripheral_data, 6)) {
-        if (offset + 14 > sizeof(key_list_buffer)) {
-          goto key_list_send;
-        }
-        
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x02;
-        memcpy(key_list_buffer + offset, ble_peripheral_data, 6);
-        offset += 6;
-        memcpy(key_list_buffer + offset, ble_peripheral_data + 6, 4);
-        offset += 4;
-        
-        printf("外设蓝牙钥匙 3\n");
-      }
-    }
-    
-    if (ble_key_peripheral_usable_num >= 4) {
-      uint8_t ble_peripheral_data[28] = {0};
-      int ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_SEND_4, ble_peripheral_data, 28);
-      if (ret > 0 && !is_all_zero(ble_peripheral_data, 6)) {
-        if (offset + 14 > sizeof(key_list_buffer)) {
-          goto key_list_send;
-        }
-        
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x00;
-        key_list_buffer[offset++] = 0x02;
-        memcpy(key_list_buffer + offset, ble_peripheral_data, 6);
-        offset += 6;
-        memcpy(key_list_buffer + offset, ble_peripheral_data + 6, 4);
-        offset += 4;
-        
-        printf("外设蓝牙钥匙 4\n");
-      }
-    }
+
+    key_list_buffer[offset++] = 0x00;
+    key_list_buffer[offset++] = 0x00;
+    key_list_buffer[offset++] = 0x00;
+    key_list_buffer[offset++] = 0x02;
+    memcpy(key_list_buffer + offset, ble_peripheral_slots[i], 6);
+    offset += 6;
+    memcpy(key_list_buffer + offset, ble_peripheral_slots[i] + 6, 4);
+    offset += 4;
+
+    printf("外设蓝牙钥匙 %d: 设备类型=0x00000002, MAC=%02X:%02X:%02X:%02X:%02X:%02X, 密码=%02X%02X%02X%02X\n",
+           i + 1,
+           ble_peripheral_slots[i][0], ble_peripheral_slots[i][1],
+           ble_peripheral_slots[i][2], ble_peripheral_slots[i][3],
+           ble_peripheral_slots[i][4], ble_peripheral_slots[i][5],
+           ble_peripheral_slots[i][6], ble_peripheral_slots[i][7],
+           ble_peripheral_slots[i][8], ble_peripheral_slots[i][9]);
   }
-  
+
   printf("Total key list data length: %d bytes\n", offset);
-  
+
 key_list_send:
   uart1_send_toMCU(protocol_id, key_list_buffer, offset);
 }
