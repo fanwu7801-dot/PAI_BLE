@@ -1,6 +1,6 @@
-// 注意�?uart_test.text 段在部分固件配置下不�?PC 可执行范围内�?
-// 若把关键逻辑放入该段会触�?CPU pc_limit 异常�?
-// 因此默认不启用；仅在确实需要调试段隔离时显式打开 UART1_TEST_SECTION_ENABLE�?
+﻿// 娉ㄦ剰锟?uart_test.text 娈靛湪閮ㄥ垎鍥轰欢閰嶇疆涓嬩笉锟?PC 鍙墽琛岃寖鍥村唴锟?
+// 鑻ユ妸鍏抽敭閫昏緫鏀惧叆璇ユ浼氳Е锟?CPU pc_limit 寮傚父锟?
+// 鍥犳榛樿涓嶅惎鐢紱浠呭湪纭疄闇€瑕佽皟璇曟闅旂鏃舵樉寮忔墦寮€ UART1_TEST_SECTION_ENABLE锟?
 #if defined(SUPPORT_MS_EXTENSIONS) && defined(UART1_TEST_SECTION_ENABLE)
 #pragma bss_seg(".uart_test.data.bss")
 #pragma data_seg(".uart_test.data")
@@ -31,9 +31,9 @@
 #include "app_main.h"
 #define UART_MAX_DATA_LEN 512
 
-// 说明：工程中部分第三方头文件会用宏重新定�?bool（例如映射到 _Bool），
-// �?cpu.h �?bool �?typedef(u8)；两者叠加会导致“头文件声明 vs 源文件定义”类型不一致�?
-// 这里在编译单元内取消 bool 宏，确保本文件使�?cpu.h �?typedef bool�?
+// 璇存槑锛氬伐绋嬩腑閮ㄥ垎绗笁鏂瑰ご鏂囦欢浼氱敤瀹忛噸鏂板畾锟?bool锛堜緥濡傛槧灏勫埌 _Bool锛夛紝
+// 锟?cpu.h 锟?bool 锟?typedef(u8)锛涗袱鑰呭彔鍔犱細瀵艰嚧鈥滃ご鏂囦欢澹版槑 vs 婧愭枃浠跺畾涔夆€濈被鍨嬩笉涓€鑷达拷?
+// 杩欓噷鍦ㄧ紪璇戝崟鍏冨唴鍙栨秷 bool 瀹忥紝纭繚鏈枃浠朵娇锟?cpu.h 锟?typedef bool锟?
 #ifdef bool
 #undef bool
 #endif
@@ -87,7 +87,7 @@ static int is_all_ff(const uint8_t *data, uint16_t len)
     return -1;
   }
 
-  // 1) 尝试按“十进制字符串SN”解析：连续数字，后续允许全0填充
+  // 1) 灏濊瘯鎸夆€滃崄杩涘埗瀛楃涓睸N鈥濊В鏋愶細杩炵画鏁板瓧锛屽悗缁厑璁稿叏0濉厖
   uint16_t digit_len = 0;
   while (digit_len < in_len) {
     uint8_t c = in[digit_len];
@@ -120,7 +120,7 @@ static int is_all_ff(const uint8_t *data, uint16_t len)
       v = v * 10 + d;
     }
 
-    // 转为 8 字节大端：等价于十六进制不足 16 位补 0
+    // 杞负 8 瀛楄妭澶х锛氱瓑浠蜂簬鍗佸叚杩涘埗涓嶈冻 16 浣嶈ˉ 0
     for (int i = 7; i >= 0; i--) {
       out[i] = (uint8_t)(v & 0xFF);
       v >>= 8;
@@ -128,9 +128,9 @@ static int is_all_ff(const uint8_t *data, uint16_t len)
     return 0;
   }
 
-  // 1.5) 按�?字节BCD编码的十进制SN”解析：每个半字节一个十进制数字
-  // 例如�?9 00 10 20 31 80 00 01 -> 十进制字符串"0900102031800001"
-  // 再按规则�?字节HEX(不足高位�?)
+  // 1.5) 鎸夛拷?瀛楄妭BCD缂栫爜鐨勫崄杩涘埗SN鈥濊В鏋愶細姣忎釜鍗婂瓧鑺備竴涓崄杩涘埗鏁板瓧
+  // 渚嬪锟?9 00 10 20 31 80 00 01 -> 鍗佽繘鍒跺瓧绗︿覆"0900102031800001"
+  // 鍐嶆寜瑙勫垯锟?瀛楄妭HEX(涓嶈冻楂樹綅锟?)
   if (in_len >= 8) {
     bool looks_bcd = true;
     for (uint16_t i = 0; i < 8; i++) {
@@ -167,7 +167,7 @@ static int is_all_ff(const uint8_t *data, uint16_t len)
     }
   }
 
-  // 2) 否则按“已经是8字节HEX”处�?
+  // 2) 鍚﹀垯鎸夆€滃凡缁忔槸8瀛楄妭HEX鈥濆锟?
   if (in_len >= 8) {
     memcpy(out, in, 8);
     return 0;
@@ -175,7 +175,7 @@ static int is_all_ff(const uint8_t *data, uint16_t len)
   return -1;
 }
 
-// APP_MSG_USER 二级消息ID（本文件内部使用；外部如需统一请迁移到公共头）
+// APP_MSG_USER 浜岀骇娑堟伅ID锛堟湰鏂囦欢鍐呴儴浣跨敤锛涘閮ㄥ闇€缁熶竴璇疯縼绉诲埌鍏叡澶达級
 #ifndef APP_MSG_USER_SN
 #define APP_MSG_USER_SN 1
 #endif
@@ -198,7 +198,7 @@ static int is_all_ff(const uint8_t *data, uint16_t len)
 
 #define UPDATA_SN_AES_KEY    1 // enable SN/AES key update from MCU
 
-// UART->APP 音效播放消息重试（避免消息队列满时丢失）
+// UART->APP 闊虫晥鎾斁娑堟伅閲嶈瘯锛堥伩鍏嶆秷鎭槦鍒楁弧鏃朵涪澶憋級
 #define TONEPLAY_RETRY_MAX         5
 #define TONEPLAY_RETRY_INTERVAL_MS 50
 static bool g_toneplay_pending = false;
@@ -211,8 +211,8 @@ static uint32_t g_toneplay_retry_tick = 0;
 #define UPDATA_SN_AES_KEY    1
 #endif
 
-// UART->SOC 配对 PIN/passkey 打包标志：arg0 = FLAG | passkey(0~999999)
-// 说明：保�?arg0=0/1 的老语义（0x0037/0x0040），因此使用高位标志避免冲突�?
+// UART->SOC 閰嶅 PIN/passkey 鎵撳寘鏍囧織锛歛rg0 = FLAG | passkey(0~999999)
+// 璇存槑锛氫繚锟?arg0=0/1 鐨勮€佽涔夛紙0x0037/0x0040锛夛紝鍥犳浣跨敤楂樹綅鏍囧織閬垮厤鍐茬獊锟?
 #ifndef UART_PAIR_PASSKEY_FLAG
 #define UART_PAIR_PASSKEY_FLAG 0x40000000
 #endif
@@ -227,7 +227,7 @@ static int uart_parse_pair_passkey(const uint8_t *data, uint16_t len, uint32_t *
     return -1;
   }
 
-  // 1) 优先支持 ASCII 6 位数�?
+  // 1) 浼樺厛鏀寔 ASCII 6 浣嶆暟锟?
   if (len >= 6) {
     uint32_t v = 0;
     uint8_t ok = 1;
@@ -244,7 +244,7 @@ static int uart_parse_pair_passkey(const uint8_t *data, uint16_t len, uint32_t *
     }
   }
 
-  // 2) 支持 3 字节大端 BE24（与现有配对码下发格式对齐）
+  // 2) 鏀寔 3 瀛楄妭澶х BE24锛堜笌鐜版湁閰嶅鐮佷笅鍙戞牸寮忓榻愶級
   if (len >= 3) {
     uint32_t v = ((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | (uint32_t)data[2];
     if (v <= 999999 && v) {
@@ -290,10 +290,10 @@ static void uart1_toneplay_retry_check(void) {
  * 
  * @param volume {placeholder}
 *******************************************************/
-static s8 g_uart_last_persist_vol = -2; // -2: 未初始化
+static s8 g_uart_last_persist_vol = -2; // -2: 鏈垵濮嬪寲
 static void set_mcu_for_volume_change(uint8_t volume)
 {
-  /* MCU->SOC 音量设置：策略与 fill_protocol �?set_volume_instruct 一�?*/
+  /* MCU->SOC 闊抽噺璁剧疆锛氱瓥鐣ヤ笌 fill_protocol 锟?set_volume_instruct 涓€锟?*/
   uint8_t sys_max = get_max_sys_vol();
   uint8_t vol_val = volume;
   uint8_t mapped;
@@ -366,19 +366,19 @@ static void set_mcu_for_volume_change(uint8_t volume)
   app_audio_set_volume(APP_AUDIO_STATE_WTONE, soc_volume, 1);
 }
 //=====================================================================
-// 定时器检查机制全局变量
-static bool uart_check_enabled = false;       // 定时器使能标�?
-static bool uart_check_timer_enabled = false; // 定时器使能标�?
-static uint32_t uart_check_interval = 100;    // 检查间�?ms)
-static uint32_t last_check_time = 0;          // 上次检查时间戳
-// 重发机制全局变量声明（必须在函数实现之前�?
+// 瀹氭椂鍣ㄦ鏌ユ満鍒跺叏灞€鍙橀噺
+static bool uart_check_enabled = false;       // 瀹氭椂鍣ㄤ娇鑳芥爣锟?
+static bool uart_check_timer_enabled = false; // 瀹氭椂鍣ㄤ娇鑳芥爣锟?
+static uint32_t uart_check_interval = 100;    // 妫€鏌ラ棿锟?ms)
+static uint32_t last_check_time = 0;          // 涓婃妫€鏌ユ椂闂存埑
+// 閲嶅彂鏈哄埗鍏ㄥ眬鍙橀噺澹版槑锛堝繀椤诲湪鍑芥暟瀹炵幇涔嬪墠锟?
 static uart_retry_context_t uart_retry_ctx = {0};
-static uint8_t retry_data_buffer[256];  // 重发数据缓冲�?
-static bool uart_retry_enabled = false; // 重发机制使能标志
+static uint8_t retry_data_buffer[256];  // 閲嶅彂鏁版嵁缂撳啿锟?
+static bool uart_retry_enabled = false; // 閲嶅彂鏈哄埗浣胯兘鏍囧織
 bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len);
 
-// 供广�?业务侧判断“是否已收到MCU下发的SN/AES(运行期有�?�?
-// 说明：即使syscfg尚未能读到（或写入失败），也可以先用最新的运行期值刷新广播�?
+// 渚涘箍锟?涓氬姟渚у垽鏂€滄槸鍚﹀凡鏀跺埌MCU涓嬪彂鐨凷N/AES(杩愯鏈熸湁锟?锟?
+// 璇存槑锛氬嵆浣縮yscfg灏氭湭鑳借鍒帮紙鎴栧啓鍏ュけ璐ワ級锛屼篃鍙互鍏堢敤鏈€鏂扮殑杩愯鏈熷€煎埛鏂板箍鎾拷?
 volatile uint8_t g_uart_sn_valid = 0;
 volatile uint8_t g_uart_aes_valid = 0;
 
@@ -390,18 +390,18 @@ static void uart1_request_mcu_update_once(void)
   }
   done = true;
 
-  // 主动向MCU发起更新请求�?x00F6/0x00F7（按协议约定为“请求帧”，payload为空�?
-  // 放在UART线程初始化成功后，避免上电早期MCU尚未就绪导致丢包�?
+  // 涓诲姩鍚慚CU鍙戣捣鏇存柊璇锋眰锟?x00F6/0x00F7锛堟寜鍗忚绾﹀畾涓衡€滆姹傚抚鈥濓紝payload涓虹┖锟?
+  // 鏀惧湪UART绾跨▼鍒濆鍖栨垚鍔熷悗锛岄伩鍏嶄笂鐢垫棭鏈烳CU灏氭湭灏辩华瀵艰嚧涓㈠寘锟?
   uart1_send_toMCU(0x00F6, NULL, 0);
   os_time_dly(2);
   uart1_send_toMCU(0x00F7, NULL, 0);
 }
 uint8_t uart_sn_buffer[8] = {0x90, 0x01, 0x02, 0x03,
-                             0x18, 0x00, 0x00, 0x05}; // 用于存储sn�?
+                             0x18, 0x00, 0x00, 0x05}; // 鐢ㄤ簬瀛樺偍sn锟?
 uint8_t uart_aes_key_buffer[16] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                    0x00, 0x00, 0x00, 0x00};
-int r; // 数据包长�?
+int r; // 鏁版嵁鍖呴暱锟?
 static bool uart_runtime_key_is_valid(const uint8_t *key, uint16_t len)
 {
   uint16_t i;
@@ -493,26 +493,26 @@ uint8_t *uart_rx_data = NULL;
 uint16_t data_length = 0;
 void *uart_rx_ptr = NULL;
 
-// ==================== 多包拼接逻辑 ====================
-// 根据报文格式约定�?
-// - 单帧固定�?1
-// - 多帧需要根据实际情况定义顺序号
-#define MAX_MULTI_PACKET_SIZE 4096  // 最大支�?4KB 多包数据
-static uint8_t g_multi_packet_buffer[MAX_MULTI_PACKET_SIZE];  // 多包缓冲�?
-static uint16_t g_current_packet_seq = 0;     // 当前包序�?
-static uint16_t g_expected_packet_seq = 1;    // 期望的包序号（从 1 开始）
-static uint16_t g_multi_packet_offset = 0;    // 多包当前偏移
-static uint16_t g_multi_packet_protocol = 0;  // 多包协议 ID
-static bool g_is_multi_packet_mode = false;   // 是否处于多包模式
+// ==================== 澶氬寘鎷兼帴閫昏緫 ====================
+// 鏍规嵁鎶ユ枃鏍煎紡绾﹀畾锟?
+// - 鍗曞抚鍥哄畾锟?1
+// - 澶氬抚闇€瑕佹牴鎹疄闄呮儏鍐靛畾涔夐『搴忓彿
+#define MAX_MULTI_PACKET_SIZE 4096  // 鏈€澶ф敮锟?4KB 澶氬寘鏁版嵁
+static uint8_t g_multi_packet_buffer[MAX_MULTI_PACKET_SIZE];  // 澶氬寘缂撳啿锟?
+static uint16_t g_current_packet_seq = 0;     // 褰撳墠鍖呭簭锟?
+static uint16_t g_expected_packet_seq = 1;    // 鏈熸湜鐨勫寘搴忓彿锛堜粠 1 寮€濮嬶級
+static uint16_t g_multi_packet_offset = 0;    // 澶氬寘褰撳墠鍋忕Щ
+static uint16_t g_multi_packet_protocol = 0;  // 澶氬寘鍗忚 ID
+static bool g_is_multi_packet_mode = false;   // 鏄惁澶勪簬澶氬寘妯″紡
 uint8_t frame[256] = {0x55, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xAA};
 static void uart_irq_func(uart_dev uart_num, enum uart_event_v1 event);
 
 static int uart1_dev = 1;
 
-// UART1 收发调试开关�?
-// 说明：大�?printf/put_buf 会显著降低吞吐，并且会拖慢系统调度，表现为“串�?队列处理慢”�?
-// 默认关闭，仅在定位协议问题时打开�?
+// UART1 鏀跺彂璋冭瘯寮€鍏筹拷?
+// 璇存槑锛氬ぇ锟?printf/put_buf 浼氭樉钁楅檷浣庡悶鍚愶紝骞朵笖浼氭嫋鎱㈢郴缁熻皟搴︼紝琛ㄧ幇涓衡€滀覆锟?闃熷垪澶勭悊鎱⑩€濓拷?
+// 榛樿鍏抽棴锛屼粎鍦ㄥ畾浣嶅崗璁棶棰樻椂鎵撳紑锟?
 #ifndef UART1_IO_DEBUG_ENABLE
 #define UART1_IO_DEBUG_ENABLE 0
 #endif
@@ -525,8 +525,8 @@ static int uart1_dev = 1;
 #define UART1_IO_DUMP(buf, len)
 #endif
 
-// RX_TIMEOUT 表示“帧接收完成”（�?rx_timeout_thresh 决定）�?
-// 在回调里只置位标志，主循环再读取数据并解析，避免阻塞等待固定长度�?
+// RX_TIMEOUT 琛ㄧず鈥滃抚鎺ユ敹瀹屾垚鈥濓紙锟?rx_timeout_thresh 鍐冲畾锛夛拷?
+// 鍦ㄥ洖璋冮噷鍙疆浣嶆爣蹇楋紝涓诲惊鐜啀璇诲彇鏁版嵁骞惰В鏋愶紝閬垮厤闃诲绛夊緟鍥哄畾闀垮害锟?
 static volatile u8 g_uart1_rx_frame_ready = 0;
 
 static uint16_t uart1_calc_frame_len(const uint8_t *buf, uint16_t remain)
@@ -573,33 +573,33 @@ static void uart_update_ble_adv_restart(void)
   le_smartbox_ble_adv_restart();
 }
 
-// 00FB协议防抖机制
+// 00FB鍗忚闃叉姈鏈哄埗
 static u32 g_last_send_key_list_time = 0;
 //===========================================
 /**
- * @brief 定时检查函数，需要在主循环中定期调用
+ * @brief 瀹氭椂妫€鏌ュ嚱鏁帮紝闇€瑕佸湪涓诲惊鐜腑瀹氭湡璋冪敤
  */
 void uart1_check_handler(void) {
   if (!uart_check_enabled || !uart_retry_enabled) {
     return;
   }
 
-  // 检查是否正在等待响�?
+  // 妫€鏌ユ槸鍚︽鍦ㄧ瓑寰呭搷锟?
   if (!uart_retry_ctx.waiting_response) {
     return;
   }
 
-  // 检查时间间�?
+  // 妫€鏌ユ椂闂撮棿锟?
   uint32_t current_time = jiffies;
   uint32_t elapsed_time = current_time - last_check_time;
 
   if (elapsed_time < uart_check_interval) {
-    return; // 未到检查时�?
+    return; // 鏈埌妫€鏌ユ椂锟?
   }
 
-  last_check_time = current_time; // 更新检查时�?
+  last_check_time = current_time; // 鏇存柊妫€鏌ユ椂锟?
 
-  // 检查是否收到响应（protocol_id匹配�?
+  // 妫€鏌ユ槸鍚︽敹鍒板搷搴旓紙protocol_id鍖归厤锟?
   if (uart1_check_response(uart_retry_ctx.protocol_id)) {
     printf("UART check: response received, stop sending. protocol_id=0x%04X\n",
            uart_retry_ctx.protocol_id);
@@ -607,7 +607,7 @@ void uart1_check_handler(void) {
     return;
   }
 
-  // 检查是否达到最大发送次�?
+  // 妫€鏌ユ槸鍚﹁揪鍒版渶澶у彂閫佹锟?
   if (uart_retry_ctx.retry_count >= uart_retry_ctx.max_retries) {
     printf("UART check: max retries reached (%d/%d), stop sending. "
            "protocol_id=0x%04X\n",
@@ -617,11 +617,11 @@ void uart1_check_handler(void) {
     return;
   }
 
-  // 检查是否超时需要重�?
+  // 妫€鏌ユ槸鍚﹁秴鏃堕渶瑕侀噸锟?
   uint32_t elapsed_send_time = current_time - uart_retry_ctx.last_send_time;
 
   if (elapsed_send_time >= uart_retry_ctx.retry_interval) {
-    // 超时，检查是否需要重�?
+    // 瓒呮椂锛屾鏌ユ槸鍚﹂渶瑕侀噸锟?
     if (uart_retry_ctx.retry_count < uart_retry_ctx.max_retries) {
       uart_retry_ctx.retry_count++;
       uart_retry_ctx.last_send_time = current_time;
@@ -630,11 +630,11 @@ void uart1_check_handler(void) {
              uart_retry_ctx.retry_count, uart_retry_ctx.max_retries,
              uart_retry_ctx.protocol_id);
 
-      // 重发数据
+      // 閲嶅彂鏁版嵁
       uart1_send_toMCU(uart_retry_ctx.protocol_id, uart_retry_ctx.data,
                        uart_retry_ctx.len);
     } else {
-      // 达到最大重试次数，重置状�?
+      // 杈惧埌鏈€澶ч噸璇曟鏁帮紝閲嶇疆鐘讹拷?
       printf("UART check: retry failed after %d attempts\n",
              uart_retry_ctx.max_retries);
       uart1_reset_retry_state();
@@ -643,8 +643,8 @@ void uart1_check_handler(void) {
 }
 
 /**
- * @brief 初始化定时器检查机�?
- * @param check_interval 检查间�?ms)
+ * @brief 鍒濆鍖栧畾鏃跺櫒妫€鏌ユ満锟?
+ * @param check_interval 妫€鏌ラ棿锟?ms)
  */
 void uart1_check_init(uint32_t check_interval) {
   uart_check_interval = check_interval;
@@ -655,7 +655,7 @@ void uart1_check_init(uint32_t check_interval) {
 }
 
 /**
- * @brief 启动定时器检查机�?
+ * @brief 鍚姩瀹氭椂鍣ㄦ鏌ユ満锟?
  */
 void uart1_check_start(void) {
   if (!uart_check_enabled) {
@@ -668,7 +668,7 @@ void uart1_check_start(void) {
 }
 
 /**
- * @brief 停止定时器检查机�?
+ * @brief 鍋滄瀹氭椂鍣ㄦ鏌ユ満锟?
  */
 void uart1_check_stop(void) {
   uart_check_enabled = false;
@@ -676,7 +676,7 @@ void uart1_check_stop(void) {
 }
 
 /**
- * @brief 销毁定时器检查机�?
+ * @brief 閿€姣佸畾鏃跺櫒妫€鏌ユ満锟?
  */
 void uart1_check_deinit(void) {
   uart_check_enabled = false;
@@ -685,15 +685,15 @@ void uart1_check_deinit(void) {
 //===========================================
 
 /**
- * @brief 检查是否收到指定协议ID的响�?
- * @param expected_protocol_id 期望的协议ID
- * @return true 收到响应，false 未收到响�?
+ * @brief 妫€鏌ユ槸鍚︽敹鍒版寚瀹氬崗璁甀D鐨勫搷锟?
+ * @param expected_protocol_id 鏈熸湜鐨勫崗璁甀D
+ * @return true 鏀跺埌鍝嶅簲锛宖alse 鏈敹鍒板搷锟?
  */
 bool uart1_check_response(uint16_t expected_protocol_id) {
   if (uart_protocol_id == expected_protocol_id && uart_data != NULL) {
     printf("UART response received: protocol_id=0x%04X\n",
            expected_protocol_id);
-    // 清空全局变量，避免重复检�?
+    // 娓呯┖鍏ㄥ眬鍙橀噺锛岄伩鍏嶉噸澶嶆锟?
     uart_protocol_id = 0;
     uart_data = NULL;
     data_length = 0;
@@ -703,12 +703,12 @@ bool uart1_check_response(uint16_t expected_protocol_id) {
 }
 
 /**
- * @brief 原子地拷贝并取走最近一次响应数�?
- * @param expected_protocol_id 期望的协议ID
- * @param out 输出缓冲�?
- * @param out_size 输出缓冲区大�?
- * @param out_len 实际拷贝长度
- * @return true 已取到响应并拷贝；false 未取�?
+ * @brief 鍘熷瓙鍦版嫹璐濆苟鍙栬蛋鏈€杩戜竴娆″搷搴旀暟锟?
+ * @param expected_protocol_id 鏈熸湜鐨勫崗璁甀D
+ * @param out 杈撳嚭缂撳啿锟?
+ * @param out_size 杈撳嚭缂撳啿鍖哄ぇ锟?
+ * @param out_len 瀹為檯鎷疯礉闀垮害
+ * @return true 宸插彇鍒板搷搴斿苟鎷疯礉锛沠alse 鏈彇锟?
  */
 bool uart1_take_response(uint16_t expected_protocol_id, uint8_t *out,
                          uint16_t out_size, uint16_t *out_len) {
@@ -738,11 +738,11 @@ bool uart1_take_response(uint16_t expected_protocol_id, uint8_t *out,
   OS_EXIT_CRITICAL();
   return ok;
 }
-// 重发机制相关函数实现
+// 閲嶅彂鏈哄埗鐩稿叧鍑芥暟瀹炵幇
 /**
- * @brief 设置重发机制配置
- * @param max_retries 最大重试次�?
- * @param retry_interval 重试间隔(ms)
+ * @brief 璁剧疆閲嶅彂鏈哄埗閰嶇疆
+ * @param max_retries 鏈€澶ч噸璇曟锟?
+ * @param retry_interval 閲嶈瘯闂撮殧(ms)
  */
 void uart1_set_retry_config(uint8_t max_retries, uint32_t retry_interval) {
   uart_retry_ctx.max_retries = max_retries;
@@ -753,7 +753,7 @@ void uart1_set_retry_config(uint8_t max_retries, uint32_t retry_interval) {
 }
 
 /**
- * @brief 重置重发状�?
+ * @brief 閲嶇疆閲嶅彂鐘讹拷?
  */
 void uart1_reset_retry_state(void) {
   uart_retry_ctx.waiting_response = false;
@@ -766,70 +766,70 @@ void uart1_reset_retry_state(void) {
   }
 }
 /**
- * @brief 阻塞等待响应（新增功能）
- * @param protocol_id 协议ID
- * @param timeout_ms 超时时间（毫秒）
- * @return true 收到响应，false 超时
+ * @brief 闃诲绛夊緟鍝嶅簲锛堟柊澧炲姛鑳斤級
+ * @param protocol_id 鍗忚ID
+ * @param timeout_ms 瓒呮椂鏃堕棿锛堟绉掞級
+ * @return true 鏀跺埌鍝嶅簲锛宖alse 瓒呮椂
  */
 bool uart1_wait_response(uint16_t protocol_id, uint32_t timeout_ms) {
   uint32_t start_time = jiffies;
-  uint32_t timeout_jiffies = timeout_ms * 1000; // 转换为jiffies
+  uint32_t timeout_jiffies = timeout_ms * 1000; // 杞崲涓簀iffies
 
   while (jiffies - start_time < timeout_jiffies) {
-    // 检查是否收到响�?
+    // 妫€鏌ユ槸鍚︽敹鍒板搷锟?
     if (uart1_check_response(protocol_id)) {
       return true;
     }
 
-    // 处理重发机制
+    // 澶勭悊閲嶅彂鏈哄埗
     uart1_retry_handler();
 
-    // 短暂延时，避免过度占用CPU
-    os_time_dly(10); // 延时10ms
+    // 鐭殏寤舵椂锛岄伩鍏嶈繃搴﹀崰鐢–PU
+    os_time_dly(10); // 寤舵椂10ms
   }
 
   printf("UART response timeout: protocol_id=0x%04X\n", protocol_id);
   return false;
 }
 /**
- * @brief 带重发的阻塞发送（新增功能�?
- * @param protocol_id 协议ID
- * @param data 数据指针
- * @param len 数据长度
- * @param timeout_ms 等待响应的超时时间（毫秒�?
- * @return true 发送成功并收到响应，false 发送失败或超时
+ * @brief 甯﹂噸鍙戠殑闃诲鍙戦€侊紙鏂板鍔熻兘锟?
+ * @param protocol_id 鍗忚ID
+ * @param data 鏁版嵁鎸囬拡
+ * @param len 鏁版嵁闀垮害
+ * @param timeout_ms 绛夊緟鍝嶅簲鐨勮秴鏃舵椂闂达紙姣锟?
+ * @return true 鍙戦€佹垚鍔熷苟鏀跺埌鍝嶅簲锛宖alse 鍙戦€佸け璐ユ垨瓒呮椂
  */
 bool uart1_send_and_wait(uint16_t protocol_id, uint8_t *data, uint16_t len,
                          uint32_t timeout_ms) {
-  // 发送数据（带重发机制）
+  // 鍙戦€佹暟鎹紙甯﹂噸鍙戞満鍒讹級
   if (!uart1_send_with_retry(protocol_id, data, len)) {
-    printf("没有收到响应\n");
+    printf("娌℃湁鏀跺埌鍝嶅簲\n");
   }
 
-  // 阻塞等待响应
+  // 闃诲绛夊緟鍝嶅簲
   return uart1_wait_response(protocol_id, timeout_ms);
 }
 
 /**
- * @brief 带重发机制的串口发送函�?
- * @param protocol_id 协议ID
- * @param data 数据指针
- * @param len 数据长度
- * @return true 发送成功，false 发送失�?
+ * @brief 甯﹂噸鍙戞満鍒剁殑涓插彛鍙戦€佸嚱锟?
+ * @param protocol_id 鍗忚ID
+ * @param data 鏁版嵁鎸囬拡
+ * @param len 鏁版嵁闀垮害
+ * @return true 鍙戦€佹垚鍔燂紝false 鍙戦€佸け锟?
  */
 bool uart1_send_with_retry(uint16_t protocol_id, uint8_t *data, uint16_t len) {
   if (!uart_retry_enabled) {
-    // 重发机制未使能，直接发�?
+    // 閲嶅彂鏈哄埗鏈娇鑳斤紝鐩存帴鍙戯拷?
     return uart1_send_toMCU(protocol_id, data, len);
   }
 
-  // 检查是否正在等待响�?
+  // 妫€鏌ユ槸鍚︽鍦ㄧ瓑寰呭搷锟?
   if (uart_retry_ctx.waiting_response) {
     printf("UART is waiting for response, skip new send request\n");
     return false;
   }
 
-  // 保存发送数据到缓冲�?
+  // 淇濆瓨鍙戦€佹暟鎹埌缂撳啿锟?
   if (len > sizeof(retry_data_buffer)) {
     printf("UART retry data too large: %d > %zu\n", len,
            sizeof(retry_data_buffer));
@@ -842,34 +842,34 @@ bool uart1_send_with_retry(uint16_t protocol_id, uint8_t *data, uint16_t len) {
   uart_retry_ctx.protocol_id = protocol_id;
   uart_retry_ctx.retry_count = 0;
   uart_retry_ctx.waiting_response = true;
-  uart_retry_ctx.last_send_time = jiffies; // 使用系统时间�?
+  uart_retry_ctx.last_send_time = jiffies; // 浣跨敤绯荤粺鏃堕棿锟?
 
-  // 第一次发�?
+  // 绗竴娆″彂锟?
   printf("UART send with retry: protocol_id=0x%04X, len=%d\n", protocol_id,
          len);
   return uart1_send_toMCU(protocol_id, data, len);
 }
 
 /**
- * @brief 重发处理函数，需要在主循环中定期调用
+ * @brief 閲嶅彂澶勭悊鍑芥暟锛岄渶瑕佸湪涓诲惊鐜腑瀹氭湡璋冪敤
  */
 void uart1_retry_handler(void) {
   if (!uart_retry_enabled || !uart_retry_ctx.waiting_response) {
     return;
   }
 
-  // 检查是否收到响�?
+  // 妫€鏌ユ槸鍚︽敹鍒板搷锟?
   if (uart1_check_response(uart_retry_ctx.protocol_id)) {
     uart1_reset_retry_state();
     return;
   }
 
-  // 检查是否超�?
+  // 妫€鏌ユ槸鍚﹁秴锟?
   uint32_t current_time = jiffies;
   uint32_t elapsed_time = current_time - uart_retry_ctx.last_send_time;
 
   if (elapsed_time >= uart_retry_ctx.retry_interval) {
-    // 超时，检查是否需要重�?
+    // 瓒呮椂锛屾鏌ユ槸鍚﹂渶瑕侀噸锟?
     if (uart_retry_ctx.retry_count < uart_retry_ctx.max_retries) {
       uart_retry_ctx.retry_count++;
       uart_retry_ctx.last_send_time = current_time;
@@ -878,11 +878,11 @@ void uart1_retry_handler(void) {
              uart_retry_ctx.retry_count, uart_retry_ctx.max_retries,
              uart_retry_ctx.protocol_id);
 
-      // 重发数据
+      // 閲嶅彂鏁版嵁
       uart1_send_toMCU(uart_retry_ctx.protocol_id, uart_retry_ctx.data,
                        uart_retry_ctx.len);
     } else {
-      // 达到最大重试次数，重置状�?
+      // 杈惧埌鏈€澶ч噸璇曟鏁帮紝閲嶇疆鐘讹拷?
       printf("UART retry failed after %d attempts\n",
              uart_retry_ctx.max_retries);
       uart1_reset_retry_state();
@@ -906,7 +906,7 @@ static void uart1_sync_demo(void *p) {
           config.baud_rate, // ??:us,? ~30 ? byte ???????????
       .event_mask =
           UART_EVENT_TX_DONE | UART_EVENT_RX_FIFO_OVF | UART_EVENT_RX_TIMEOUT,
-      .tx_wait_mutex = 0, // 1:不支持中断调�?互斥,0:支持中断,不互�?
+      .tx_wait_mutex = 0, // 1:涓嶆敮鎸佷腑鏂皟锟?浜掓枼,0:鏀寔涓柇,涓嶄簰锟?
       .irq_priority = 3,
       .irq_callback = uart_irq_func,
       .rx_cbuffer = uart_rx_ptr,
@@ -932,13 +932,13 @@ static void uart1_sync_demo(void *p) {
   }
 
   // uart1_set_retry_config(
-  //     4, 1000); // 最大重�?次，间隔1�?根据派电的协议，5s内需要给定回�?
+  //     4, 1000); // 鏈€澶ч噸锟?娆★紝闂撮殧1锟?鏍规嵁娲剧數鐨勫崗璁紝5s鍐呴渶瑕佺粰瀹氬洖锟?
 
-  // 初始化定时器检查机制，使用MAX_SEND_NUM作为最大发送次�?
-  uart1_check_init(100); // 100ms检查间�?
-  uart1_check_start();   // 启动定时器检�?
+  // 鍒濆鍖栧畾鏃跺櫒妫€鏌ユ満鍒讹紝浣跨敤MAX_SEND_NUM浣滀负鏈€澶у彂閫佹锟?
+  uart1_check_init(100); // 100ms妫€鏌ラ棿锟?
+  uart1_check_start();   // 鍚姩瀹氭椂鍣ㄦ锟?
 
-  // �?flash 读取 AES key 到运行时缓冲�?
+  // 锟?flash 璇诲彇 AES key 鍒拌繍琛屾椂缂撳啿锟?
   {
     uint8_t flash_aes_key[16] = {0};
     int r = syscfg_read(CFG_DEVICE_AES_KEY, flash_aes_key, sizeof(flash_aes_key));
@@ -953,18 +953,18 @@ static void uart1_sync_demo(void *p) {
     }
   }
 
-  // UART初始化完成后，主动向MCU发起一�?037/0038更新请求
+  // UART鍒濆鍖栧畬鎴愬悗锛屼富鍔ㄥ悜MCU鍙戣捣涓€锟?037/0038鏇存柊璇锋眰
   uart1_request_mcu_update_once();
   uart_dump();
   while (1) {
-    // 尝试重投递音效播放消息（非阻塞）
+    // 灏濊瘯閲嶆姇閫掗煶鏁堟挱鏀炬秷鎭紙闈為樆濉烇級
     uart1_pending_tx_try();
     uart1_toneplay_retry_check();
-    // 处理重发机制
+    // 澶勭悊閲嶅彂鏈哄埗
     // uart1_retry_handler();
-    // 说明：原先使�?uart_recv_blocking(uart, buf, 256, 20) 会等待“收�?56字节”才返回�?
-    // 实际一帧通常远小�?56，导致每包额外等待到超时窗口，表现为“串口慢/队列慢”�?
-    // 改为 RX_TIMEOUT 事件驱动：只有当一帧接收完成时才读取并解析�?
+    // 璇存槑锛氬師鍏堜娇锟?uart_recv_blocking(uart, buf, 256, 20) 浼氱瓑寰呪€滄敹锟?56瀛楄妭鈥濇墠杩斿洖锟?
+    // 瀹為檯涓€甯ч€氬父杩滃皬锟?56锛屽鑷存瘡鍖呴澶栫瓑寰呭埌瓒呮椂绐楀彛锛岃〃鐜颁负鈥滀覆鍙ｆ參/闃熷垪鎱⑩€濓拷?
+    // 鏀逛负 RX_TIMEOUT 浜嬩欢椹卞姩锛氬彧鏈夊綋涓€甯ф帴鏀跺畬鎴愭椂鎵嶈鍙栧苟瑙ｆ瀽锟?
 
     if (!g_uart1_rx_frame_ready) {
       os_time_dly(1);
@@ -973,9 +973,9 @@ static void uart1_sync_demo(void *p) {
 
     g_uart1_rx_frame_ready = 0;
 
-    // �?UART cbuf 中把当前可读的数据一次性读出来（最�?2048 字节，与 rx_cbuffer_size 一致）�?
+    // 锟?UART cbuf 涓妸褰撳墠鍙鐨勬暟鎹竴娆℃€ц鍑烘潵锛堟渶锟?2048 瀛楄妭锛屼笌 rx_cbuffer_size 涓€鑷达級锟?
     u32 total = 0;
-    // 使用非阻塞式读取，避免应用层被阻�?
+    // 浣跨敤闈為樆濉炲紡璇诲彇锛岄伩鍏嶅簲鐢ㄥ眰琚樆锟?
     s32 rr = uart_recv_bytes(uart1_dev, (u8 *)uart_rx_ptr, 2048);
     if (rr > 0) {
       total = (u32)rr;
@@ -1000,7 +1000,7 @@ static void uart1_sync_demo(void *p) {
         if (frame_len == 0) {
           break;
         }
-        UART1_IO_LOG("找到一帧数据，长度=%d\n", frame_len);
+        UART1_IO_LOG("鎵惧埌涓€甯ф暟鎹紝闀垮害=%d\n", frame_len);
         uart1_parse_packet(&rx_buf[parse_off], frame_len);
         UART1_IO_LOG("protocol_id:0x%04X\n", uart_protocol_id);
 
@@ -1008,24 +1008,24 @@ static void uart1_sync_demo(void *p) {
         UART1_IO_LOG("recv data:\n");
         UART1_IO_DUMP(uart_data, data_length);
 
-        /*todo:新添蓝牙设置音量大小逻辑*/
+        /*todo:鏂版坊钃濈墮璁剧疆闊抽噺澶у皬閫昏緫*/
         {
-          /*如果 protocol_id = 0x00F1 data == 0x47 ---> 进入音量设置 data[1] = 1/2/3 对应 高中�?
-          考虑调用fill_protocol的音量处理逻辑*/
+          /*濡傛灉 protocol_id = 0x00F1 data == 0x47 ---> 杩涘叆闊抽噺璁剧疆 data[1] = 1/2/3 瀵瑰簲 楂樹腑锟?
+          鑰冭檻璋冪敤fill_protocol鐨勯煶閲忓鐞嗛€昏緫*/
           // extern void set_volume_instruct(uint16_t protocol_id);
         }
         if (uart_protocol_id == 0x00F1 && data_length >= 2 && uart_data[0] == 0x2F) {
-          printf("进入音量设置");
+          printf("杩涘叆闊抽噺璁剧疆");
           set_mcu_for_volume_change(uart_data[1]);
         }
 
-          if (uart_protocol_id == 0x00F4) { // 把uart_data的�?1�? 转化为int类型（使用原�?16-bit 大端�?
+          if (uart_protocol_id == 0x00F4) { // 鎶妘art_data鐨勶拷?1锟? 杞寲涓篿nt绫诲瀷锛堜娇鐢ㄥ師锟?16-bit 澶х锟?
           if (data_length >= 2) {
             u16 code = ((u16)uart_data[0] << 8) | uart_data[1];
             int tone_id = (int)code;
             UART1_IO_LOG("0x00F4: parsed tone_id raw=0x%04X (%d)\n", code, tone_id);
 
-            // 统一�?APP_MSG_USER_TONPLAY；自定义音效优先逻辑已合并到 bt.c �?case 5
+            // 缁熶竴锟?APP_MSG_USER_TONPLAY锛涜嚜瀹氫箟闊虫晥浼樺厛閫昏緫宸插悎骞跺埌 bt.c 锟?case 5
             int ret = app_send_message(APP_MSG_USER_TONPLAY, tone_id);
             if (ret == 0) {
               g_toneplay_pending = false;
@@ -1042,20 +1042,20 @@ static void uart1_sync_demo(void *p) {
 #if UPDATA_SN_AES_KEY
         if (uart_protocol_id == 0x00F6) {
           {
-            // MCU->SOC：更新SN (0x00F6)
-            // 支持两种格式�?
-            // 1) 十进制字符串SN：按规则�?字节HEX(不足高位�?)写入CFG_DEVICE_SN
-            // 2) 直接8字节HEX：原样写入CFG_DEVICE_SN
+            // MCU->SOC锛氭洿鏂癝N (0x00F6)
+            // 鏀寔涓ょ鏍煎紡锟?
+            // 1) 鍗佽繘鍒跺瓧绗︿覆SN锛氭寜瑙勫垯锟?瀛楄妭HEX(涓嶈冻楂樹綅锟?)鍐欏叆CFG_DEVICE_SN
+            // 2) 鐩存帴8瀛楄妭HEX锛氬師鏍峰啓鍏FG_DEVICE_SN
             uint8_t sn_hex8[8] = {0};
             if (sn_payload_to_hex8(uart_data, data_length, sn_hex8) != 0) {
-              printf("SN 数据更新的长�?%d\n", data_length);
+              printf("SN 鏁版嵁鏇存柊鐨勯暱锟?%d\n", data_length);
             } else {
               uart_runtime_sn_update(sn_hex8);
               int w = syscfg_write(CFG_DEVICE_SN, sn_hex8, 8);
-              printf("SN updated(保存转化为HEX8):\n");
+              printf("SN updated(淇濆瓨杞寲涓篐EX8):\n");
               put_buf(sn_hex8, 8);
 
-              // 读回验证，帮助定位“写了但广播没变”的问题
+              // 璇诲洖楠岃瘉锛屽府鍔╁畾浣嶁€滃啓浜嗕絾骞挎挱娌″彉鈥濈殑闂
               {
                 uint8_t rb[8] = {0};
                 int r = syscfg_read(CFG_DEVICE_SN, rb, sizeof(rb));
@@ -1072,7 +1072,7 @@ static void uart1_sync_demo(void *p) {
           }
         }
         if (uart_protocol_id == 0x00F7) {
-          // MCU->SOC：更新AES_KEY (0x00F7, len=16)
+          // MCU->SOC锛氭洿鏂癆ES_KEY (0x00F7, len=16)
           if (data_length < 16) {
             printf("AES_KEY update invalid len=%d\n", data_length);
           } else {
@@ -1082,7 +1082,7 @@ static void uart1_sync_demo(void *p) {
             int w = syscfg_write(CFG_DEVICE_AES_KEY, new_aes_key, sizeof(new_aes_key));
             printf("AES_KEY updated and saved.\n");
 
-            // 读回验证
+            // 璇诲洖楠岃瘉
             {
               uint8_t rb[16] = {0};
               int r = syscfg_read(CFG_DEVICE_AES_KEY, rb, sizeof(rb));
@@ -1090,9 +1090,9 @@ static void uart1_sync_demo(void *p) {
               printf("AES_KEY readback:\n");
               put_buf(new_aes_key, 16);
               if (memcmp(rb, new_aes_key, 16) == 0) {
-                printf("AES_key_检验成�? matches written value.\n");
+                printf("AES_key_妫€楠屾垚锟? matches written value.\n");
               } else {
-                printf("AES_KEY_检验失�? does not match written value.\n");
+                printf("AES_KEY_妫€楠屽け锟? does not match written value.\n");
               }
               
             }
@@ -1104,17 +1104,17 @@ static void uart1_sync_demo(void *p) {
 #endif
 
         if (uart_protocol_id == 0x0033)
-        { // 当前需要直接获取车辆设置信息指�?在le_trans_data 当中死等不到回应
+        { // 褰撳墠闇€瑕佺洿鎺ヨ幏鍙栬溅杈嗚缃俊鎭寚锟?鍦╨e_trans_data 褰撲腑姝荤瓑涓嶅埌鍥炲簲
           // extern void  get_vehice_set_infromation_instruct(uint16_t protocol_id);
           //  app_send_message(APP_MSG_USER_VEHICLE_INFORMATION,
-          //                  0); // 转换为int传给事件队列-------> 用于处理车辆设置信息
+          //                  0); // 杞崲涓篿nt浼犵粰浜嬩欢闃熷垪-------> 鐢ㄤ簬澶勭悊杞﹁締璁剧疆淇℃伅
           
         }
         if(uart_protocol_id == 0x0037)
         { /*
-          * 处理配对信息指令 0x0037
-          * 新增：支持携�?PIN/passkey（ASCII 6�?�?3字节BE24），用于直接指定配对码；
-          *      不携�?解析失败则保持旧逻辑(随机生成)�?
+          * 澶勭悊閰嶅淇℃伅鎸囦护 0x0037
+          * 鏂板锛氭敮鎸佹惡锟?PIN/passkey锛圓SCII 6锟?锟?3瀛楄妭BE24锛夛紝鐢ㄤ簬鐩存帴鎸囧畾閰嶅鐮侊紱
+          *      涓嶆惡锟?瑙ｆ瀽澶辫触鍒欎繚鎸佹棫閫昏緫(闅忔満鐢熸垚)锟?
           */
           uint32_t passkey = 0;
           int arg0 = 0;
@@ -1127,20 +1127,20 @@ static void uart1_sync_demo(void *p) {
         if(uart_protocol_id == 0x0038)
         {
           app_send_message(APP_MSG_USER_READ_KEY_LIST,
-                           0); // 转换为int传给事件队列-------> 用于处理配对信息指令
+                           0); // 杞崲涓篿nt浼犵粰浜嬩欢闃熷垪-------> 鐢ㄤ簬澶勭悊閰嶅淇℃伅鎸囦护
         }
         if (uart_protocol_id == 0x0040)
         {
-          // 处理4G+BLE情况下进行串口下发add钥匙指令
+          // 澶勭悊4G+BLE鎯呭喌涓嬭繘琛屼覆鍙ｄ笅鍙慳dd閽ュ寵鎸囦护
           app_send_message(APP_MSG_USER_PARING_INFORMATION,
-                           1); // 转换为int传给事件队列-------> 用于处理配对信息指令
+                           1); // 杞崲涓篿nt浼犵粰浜嬩欢闃熷垪-------> 鐢ㄤ簬澶勭悊閰嶅淇℃伅鎸囦护
         }
         
         if (uart_protocol_id == 0x00F8)
         {
-          // 添加蓝牙钥匙 - 先分析钥匙类型，然后根据不同的钥匙类型去写逻辑
-          // 数据格式：[设备类型(4字节)][MAC地址(6字节)][匹配密码(4字节)]
-          printf("[UART] PID_BLE_ADD_BLUETOOTH_KEY: 添加蓝牙钥匙\n");
+          // 娣诲姞钃濈墮閽ュ寵 - 鍏堝垎鏋愰挜鍖欑被鍨嬶紝鐒跺悗鏍规嵁涓嶅悓鐨勯挜鍖欑被鍨嬪幓鍐欓€昏緫
+          // 鏁版嵁鏍煎紡锛歔璁惧绫诲瀷(4瀛楄妭)][MAC鍦板潃(6瀛楄妭)][鍖归厤瀵嗙爜(4瀛楄妭)]
+          printf("[UART] PID_BLE_ADD_BLUETOOTH_KEY: 娣诲姞钃濈墮閽ュ寵\n");
           if (data_length >= 14) {
             uint8_t device_type[4];
             memcpy(device_type, uart_data, 4);
@@ -1149,7 +1149,7 @@ static void uart1_sync_demo(void *p) {
             uint8_t password[4];
             memcpy(password, uart_data + 10, 4);
             
-            printf("设备类型: %02X %02X %02X %02X, MAC地址:%02X:%02X:%02X:%02X:%02X:%02X, 密码:%02X %02X %02X %02X\n",
+            printf("璁惧绫诲瀷: %02X %02X %02X %02X, MAC鍦板潃:%02X:%02X:%02X:%02X:%02X:%02X, 瀵嗙爜:%02X %02X %02X %02X\n",
                    device_type[0], device_type[1], device_type[2], device_type[3],
                    MAC_addr[0], MAC_addr[1], MAC_addr[2], MAC_addr[3], MAC_addr[4], MAC_addr[5],
                    password[0], password[1], password[2], password[3]);
@@ -1158,20 +1158,20 @@ static void uart1_sync_demo(void *p) {
             
             switch (key_type) {
               case 0x01:
-                printf("手机蓝牙钥匙\n");
+                printf("鎵嬫満钃濈墮閽ュ寵\n");
                 break;
               case 0x02:
               case 0xFE:
-                printf("外设蓝牙钥匙\n");
+                printf("澶栬钃濈墮閽ュ寵\n");
                 break;
               case 0x03:
-                printf("NFC钥匙\n");
+                printf("NFC閽ュ寵\n");
                 break;
               case 0x04:
-                printf("密码钥匙\n");
+                printf("瀵嗙爜閽ュ寵\n");
                 break;
               default:
-                printf("未知钥匙类型: 0x%02X\n", key_type);
+                printf("鏈煡閽ュ寵绫诲瀷: 0x%02X\n", key_type);
                 break;
             }
             
@@ -1180,20 +1180,20 @@ static void uart1_sync_demo(void *p) {
               int ret = syscfg_read(CFG_BLE_KEY_PERIPHERAL_USABLE, &peripheral_key_num, sizeof(peripheral_key_num));
               
               if (ret <= 0) {
-                printf("读取CFG_BLE_KEY_PERIPHERAL_USABLE失败，使用默认�?\n");
+                printf("璇诲彇CFG_BLE_KEY_PERIPHERAL_USABLE澶辫触锛屼娇鐢ㄩ粯璁わ拷?\n");
                 peripheral_key_num = 0;
               }
               
               if (peripheral_key_num > 4) {
-                printf("检测到无效的key_num�? %d，重置为0\n", peripheral_key_num);
+                printf("妫€娴嬪埌鏃犳晥鐨刱ey_num锟? %d锛岄噸缃负0\n", peripheral_key_num);
                 peripheral_key_num = 0;
               }
               
-              printf("当前可以用的外设蓝牙钥匙保存空间:%d\n", peripheral_key_num);
+              printf("褰撳墠鍙互鐢ㄧ殑澶栬钃濈墮閽ュ寵淇濆瓨绌洪棿:%d\n", peripheral_key_num);
               uint8_t Uable_num = 4 - peripheral_key_num;
               
               if (Uable_num > 0) {
-                printf("检测到可以用的外设蓝牙钥匙保存空间，Uable_num:%d\n", Uable_num);
+                printf("妫€娴嬪埌鍙互鐢ㄧ殑澶栬钃濈墮閽ュ寵淇濆瓨绌洪棿锛孶able_num:%d\n", Uable_num);
                 
                 uint8_t current_MAC_adders[6] = {0};
                 int mac_exists = 0;
@@ -1203,17 +1203,17 @@ static void uart1_sync_demo(void *p) {
                   syscfg_read(cfg_id, current_MAC_adders, 6);
                   if (!is_all_zero(current_MAC_adders, 6) && memcmp(current_MAC_adders, MAC_addr, 6) == 0) {
                     mac_exists = 1;
-                    printf("MAC地址已存在于位置%d\n", i);
+                    printf("MAC鍦板潃宸插瓨鍦ㄤ簬浣嶇疆%d\n", i);
                     break;
                   }
                 }
                 
                 if (mac_exists) {
-                  printf("MAC地址已存在，不保存\n");
+                  printf("MAC鍦板潃宸插瓨鍦紝涓嶄繚瀛榎n");
                 } else {
-                  // 检查MAC地址是否全为0
+                  // 妫€鏌AC鍦板潃鏄惁鍏ㄤ负0
                   if (is_all_zero(MAC_addr, 6)) {
-                    printf("MAC地址全为0，不保存\n");
+                    printf("MAC鍦板潃鍏ㄤ负0锛屼笉淇濆瓨\n");
                   } else {
                     uint8_t save_buffer[28] = {0};
                     memcpy(save_buffer, MAC_addr, 6);
@@ -1225,22 +1225,22 @@ static void uart1_sync_demo(void *p) {
                     switch (peripheral_key_num) {
                       case 0:
                         save_cfg_id = CFG_BLE_KEY_PERIPHERAL_SEND_1;
-                        printf("保存到位�?\n");
+                        printf("淇濆瓨鍒颁綅锟?\n");
                         break;
                       case 1:
                         save_cfg_id = CFG_BLE_KEY_PERIPHERAL_SEND_2;
-                        printf("保存到位�?\n");
+                        printf("淇濆瓨鍒颁綅锟?\n");
                         break;
                       case 2:
                         save_cfg_id = CFG_BLE_KEY_PERIPHERAL_SEND_3;
-                        printf("保存到位�?\n");
+                        printf("淇濆瓨鍒颁綅锟?\n");
                         break;
                       case 3:
                         save_cfg_id = CFG_BLE_KEY_PERIPHERAL_SEND_4;
-                        printf("保存到位�?\n");
+                        printf("淇濆瓨鍒颁綅锟?\n");
                         break;
                       default:
-                        printf("无效的key_num�? %d\n", peripheral_key_num);
+                        printf("鏃犳晥鐨刱ey_num锟? %d\n", peripheral_key_num);
                         break;
                     }
                     
@@ -1249,36 +1249,36 @@ static void uart1_sync_demo(void *p) {
                       if (ret > 0) {
                         peripheral_key_num++;
                         syscfg_write(CFG_BLE_KEY_PERIPHERAL_USABLE, &peripheral_key_num, sizeof(peripheral_key_num));
-                        printf("保存成功，当前已保存数量: %d\n", peripheral_key_num);
+                        printf("淇濆瓨鎴愬姛锛屽綋鍓嶅凡淇濆瓨鏁伴噺: %d\n", peripheral_key_num);
                         uart_send_ble_key_list(0x00FB);
                       } else {
-                        printf("保存失败\n");
+                        printf("淇濆瓨澶辫触\n");
                       }
                     }
                   }
                 }
               } else {
-                printf("没有外设蓝牙钥匙空间\n");
+                printf("娌℃湁澶栬钃濈墮閽ュ寵绌洪棿\n");
               }
             } else if (key_type == 0x15) {
               uint8_t nfc_key_num = 0;
               int ret = syscfg_read(CFG_NFC_KEY_PERIPHERAL_USABLE_NUM, &nfc_key_num, sizeof(nfc_key_num));
               
               if (ret <= 0) {
-                printf("读取CFG_NFC_KEY_PERIPHERAL_USABLE_NUM失败，使用默认�?\n");
+                printf("璇诲彇CFG_NFC_KEY_PERIPHERAL_USABLE_NUM澶辫触锛屼娇鐢ㄩ粯璁わ拷?\n");
                 nfc_key_num = 0;
               }
               
               if (nfc_key_num > 3) {
-                printf("检测到无效的nfc_key_num�? %d，重置为0\n", nfc_key_num);
+                printf("妫€娴嬪埌鏃犳晥鐨刵fc_key_num锟? %d锛岄噸缃负0\n", nfc_key_num);
                 nfc_key_num = 0;
               }
               
-              printf("当前可以用的NFC钥匙保存空间:%d\n", nfc_key_num);
+              printf("褰撳墠鍙互鐢ㄧ殑NFC閽ュ寵淇濆瓨绌洪棿:%d\n", nfc_key_num);
               uint8_t Uable_num = 3 - nfc_key_num;
               
               if (Uable_num > 0) {
-                printf("检测到可以用的NFC钥匙保存空间，Uable_num:%d\n", Uable_num);
+                printf("妫€娴嬪埌鍙互鐢ㄧ殑NFC閽ュ寵淇濆瓨绌洪棿锛孶able_num:%d\n", Uable_num);
                 
                 uint8_t current_NFC_adders[16] = {0};
                 int nfc_exists = 0;
@@ -1288,17 +1288,17 @@ static void uart1_sync_demo(void *p) {
                   syscfg_read(cfg_id, current_NFC_adders, 16);
                   if (!is_all_zero(current_NFC_adders, 6) && memcmp(current_NFC_adders, MAC_addr, 6) == 0) {
                     nfc_exists = 1;
-                    printf("NFC地址已存在于位置%d\n", i);
+                    printf("NFC鍦板潃宸插瓨鍦ㄤ簬浣嶇疆%d\n", i);
                     break;
                   }
                 }
                 
                 if (nfc_exists) {
-                  printf("NFC地址已存在，不保存\n");
+                  printf("NFC鍦板潃宸插瓨鍦紝涓嶄繚瀛榎n");
                 } else {
-                  // 检查MAC地址是否全为0
+                  // 妫€鏌AC鍦板潃鏄惁鍏ㄤ负0
                   if (is_all_zero(MAC_addr, 6)) {
-                    printf("NFC地址全为0，不保存\n");
+                    printf("NFC鍦板潃鍏ㄤ负0锛屼笉淇濆瓨\n");
                   } else {
                     uint8_t save_buffer[16] = {0};
                     memcpy(save_buffer, MAC_addr, 6);
@@ -1310,18 +1310,18 @@ static void uart1_sync_demo(void *p) {
                     switch (nfc_key_num) {       
                       case 0:
                         save_cfg_id = CFG_NFC_KEY_PERIPHERAL_SEND_1;
-                        printf("保存到位�?\n");
+                        printf("淇濆瓨鍒颁綅锟?\n");
                         break;
                       case 1:
                         save_cfg_id = CFG_NFC_KEY_PERIPHERAL_SEND_2;
-                        printf("保存到位�?\n");
+                        printf("淇濆瓨鍒颁綅锟?\n");
                         break;
                       case 2:
                         save_cfg_id = CFG_NFC_KEY_PERIPHERAL_SEND_3;
-                        printf("保存到位�?\n");
+                        printf("淇濆瓨鍒颁綅锟?\n");
                         break;
                       default:
-                        printf("无效的nfc_key_num�? %d\n", nfc_key_num);
+                        printf("鏃犳晥鐨刵fc_key_num锟? %d\n", nfc_key_num);
                         break;
                     }
                     
@@ -1330,51 +1330,51 @@ static void uart1_sync_demo(void *p) {
                       if (ret > 0) {
                         nfc_key_num++;
                         syscfg_write(CFG_NFC_KEY_PERIPHERAL_USABLE_NUM, &nfc_key_num, sizeof(nfc_key_num));
-                        printf("保存成功，当前已保存数量: %d\n", nfc_key_num);
+                        printf("淇濆瓨鎴愬姛锛屽綋鍓嶅凡淇濆瓨鏁伴噺: %d\n", nfc_key_num);
                         uart_send_ble_key_list(0x00FB);
                       } else {
-                        printf("保存失败\n");
+                        printf("淇濆瓨澶辫触\n");
                       }
                     }
                   }
                 }
               } else {
-                printf("没有NFC钥匙空间\n");
+                printf("娌℃湁NFC閽ュ寵绌洪棿\n");
               }
             } else if (key_type == 0x01) {
-              printf("手机蓝牙钥匙 - 触发配对流程\n");
+              printf("鎵嬫満钃濈墮閽ュ寵 - 瑙﹀彂閰嶅娴佺▼\n");
               
               uint8_t phone_ble_key_usable_num = 0;
               int ret = syscfg_read(CFG_PHONE_BLE_KEY_USABLE_NUM, &phone_ble_key_usable_num, sizeof(phone_ble_key_usable_num));
               
               if (ret <= 0) {
-                printf("读取CFG_PHONE_BLE_KEY_USABLE_NUM失败，使用默认�?\n");
+                printf("璇诲彇CFG_PHONE_BLE_KEY_USABLE_NUM澶辫触锛屼娇鐢ㄩ粯璁わ拷?\n");
                 phone_ble_key_usable_num = 0;
               }
               
               if (phone_ble_key_usable_num > 3) {
-                printf("检测到无效的phone_ble_key_usable_num�? %d，重置为0\n", phone_ble_key_usable_num);
+                printf("妫€娴嬪埌鏃犳晥鐨刾hone_ble_key_usable_num锟? %d锛岄噸缃负0\n", phone_ble_key_usable_num);
                 phone_ble_key_usable_num = 0;
               }
               
-              printf("当前可以用的手机蓝牙钥匙保存空间:%d\n", phone_ble_key_usable_num);
+              printf("褰撳墠鍙互鐢ㄧ殑鎵嬫満钃濈墮閽ュ寵淇濆瓨绌洪棿:%d\n", phone_ble_key_usable_num);
               uint8_t Uable_num = 3 - phone_ble_key_usable_num;
               
               if (Uable_num > 0) {
-                printf("检测到可以用的手机蓝牙钥匙保存空间，Uable_num:%d\n", Uable_num);
+                printf("妫€娴嬪埌鍙互鐢ㄧ殑鎵嬫満钃濈墮閽ュ寵淇濆瓨绌洪棿锛孶able_num:%d\n", Uable_num);
                 
-                // 检查MAC地址是否全为0
+                // 妫€鏌AC鍦板潃鏄惁鍏ㄤ负0
                 if (is_all_zero(MAC_addr, 6)) {
-                  printf("MAC地址全为0，将在配对成功后获取并保存手机的MAC地址\n");
+                  printf("MAC鍦板潃鍏ㄤ负0锛屽皢鍦ㄩ厤瀵规垚鍔熷悗鑾峰彇骞朵繚瀛樻墜鏈虹殑MAC鍦板潃\n");
                 }
                 
                 uint32_t passkey = 0;
                 uint8_t valid_passkey = 0;
                 
-                printf("原始password: %02X %02X %02X %02X\n", password[0], password[1], password[2], password[3]);
+                printf("鍘熷password: %02X %02X %02X %02X\n", password[0], password[1], password[2], password[3]);
                 
                 if (password[0] == 0 && password[1] == 0 && password[2] == 0 && password[3] == 0) {
-                  printf("password全为0，使用随机生成\n");
+                  printf("password鍏ㄤ负0锛屼娇鐢ㄩ殢鏈虹敓鎴怽n");
                   valid_passkey = 0;
                 } else {
                   uint8_t is_bcd = 1;
@@ -1389,37 +1389,37 @@ static void uart1_sync_demo(void *p) {
                     passkey = (uint32_t)((password[0] >> 4) * 100000 + (password[0] & 0x0F) * 10000 +
                                         (password[1] >> 4) * 1000 + (password[1] & 0x0F) * 100 +
                                         (password[2] >> 4) * 10 + (password[2] & 0x0F));
-                    printf("BCD解码配对�? %06u\n", passkey);
+                    printf("BCD瑙ｇ爜閰嶅锟? %06u\n", passkey);
                     valid_passkey = 1;
                   } else {
                     passkey = ((uint32_t)password[0] << 24) | ((uint32_t)password[1] << 16) | 
                                ((uint32_t)password[2] << 8) | (uint32_t)password[3];
                     if (passkey > 0 && passkey <= 999999) {
-                      printf("直接使用配对�? %06u\n", passkey);
+                      printf("鐩存帴浣跨敤閰嶅锟? %06u\n", passkey);
                       valid_passkey = 1;
                     } else {
-                      printf("无效的passkey�? %u，使用随机生成\n", passkey);
+                      printf("鏃犳晥鐨刾asskey锟? %u锛屼娇鐢ㄩ殢鏈虹敓鎴怽n", passkey);
                       valid_passkey = 0;
                     }
                   }
                 }
                 
                 if (valid_passkey) {
-                  printf("设置配对passkey: %06u\n", passkey);
+                  printf("璁剧疆閰嶅passkey: %06u\n", passkey);
                   ble_pairing_set_uart_passkey(passkey);
                   fill_protocol_set_uart_passkey(passkey);
                   
-                  printf("触发配对流程\n");
+                  printf("瑙﹀彂閰嶅娴佺▼\n");
                   app_send_message(APP_MSG_USER_PARING_INFORMATION, 0x40000000 | passkey);
                 } else {
-                  printf("使用随机生成配对码\n");
+                  printf("浣跨敤闅忔満鐢熸垚閰嶅鐮乗n");
                   app_send_message(APP_MSG_USER_PARING_INFORMATION, 0);
                 }
               } else {
-                printf("没有手机蓝牙钥匙空间\n");
+                printf("娌℃湁鎵嬫満钃濈墮閽ュ寵绌洪棿\n");
               }
             } else if (key_type == 0x04) {
-              printf("密码钥匙暂不支持添加\n");
+              printf("瀵嗙爜閽ュ寵鏆備笉鏀寔娣诲姞\n");
             }
           }
           /* phone key list should be sent after pair success callback */
@@ -1428,9 +1428,9 @@ static void uart1_sync_demo(void *p) {
         
         if (uart_protocol_id == 0x00F9)
         {
-          // 删除蓝牙钥匙 - 先分析钥匙类型，然后根据不同的钥匙类型去删除
-          // 数据格式：[设备类型(4字节)][MAC地址(6字节)][匹配密码(4字节)]
-          printf("[UART] PID_BLE_DELETE_BLUETOOTH_KEY: 删除蓝牙钥匙\n");
+          // 鍒犻櫎钃濈墮閽ュ寵 - 鍏堝垎鏋愰挜鍖欑被鍨嬶紝鐒跺悗鏍规嵁涓嶅悓鐨勯挜鍖欑被鍨嬪幓鍒犻櫎
+          // 鏁版嵁鏍煎紡锛歔璁惧绫诲瀷(4瀛楄妭)][MAC鍦板潃(6瀛楄妭)][鍖归厤瀵嗙爜(4瀛楄妭)]
+          printf("[UART] PID_BLE_DELETE_BLUETOOTH_KEY: 鍒犻櫎钃濈墮閽ュ寵\n");
           if (data_length >= 14) {
             uint8_t device_type[4];
             memcpy(device_type, uart_data, 4);
@@ -1439,7 +1439,7 @@ static void uart1_sync_demo(void *p) {
             uint8_t password[4];
             memcpy(password, uart_data + 10, 4);
             
-            printf("设备类型: %02X %02X %02X %02X, MAC地址:%02X:%02X:%02X:%02X:%02X:%02X, 密码:%02X %02X %02X %02X\n",
+            printf("璁惧绫诲瀷: %02X %02X %02X %02X, MAC鍦板潃:%02X:%02X:%02X:%02X:%02X:%02X, 瀵嗙爜:%02X %02X %02X %02X\n",
                    device_type[0], device_type[1], device_type[2], device_type[3],
                    MAC_addr[0], MAC_addr[1], MAC_addr[2], MAC_addr[3], MAC_addr[4], MAC_addr[5],
                    password[0], password[1], password[2], password[3]);
@@ -1448,20 +1448,20 @@ static void uart1_sync_demo(void *p) {
             
             switch (key_type) {
               case 0x01:
-                printf("手机蓝牙钥匙\n");
+                printf("鎵嬫満钃濈墮閽ュ寵\n");
                 break;
               case 0x02:
               case 0xFE:
-                printf("外设蓝牙钥匙\n");
+                printf("澶栬钃濈墮閽ュ寵\n");
                 break;
               case 0x03:
-                printf("NFC钥匙\n");
+                printf("NFC閽ュ寵\n");
                 break;
               case 0x04:
-                printf("密码钥匙\n");
+                printf("瀵嗙爜閽ュ寵\n");
                 break;
               default:
-                printf("未知钥匙类型: 0x%02X\n", key_type);
+                printf("鏈煡閽ュ寵绫诲瀷: 0x%02X\n", key_type);
                 break;
             }
             
@@ -1480,7 +1480,7 @@ static void uart1_sync_demo(void *p) {
                   
                   if (memcmp(current_MAC_adders, MAC_addr, 6) == 0) {
                     syscfg_write(cfg_id, delet_buffer, sizeof(delet_buffer));
-                    printf("删除�?d个外设蓝牙钥匙\n", i);
+                    printf("鍒犻櫎锟?d涓璁捐摑鐗欓挜鍖橽n", i);
                     current_key_num--;
                     deleted = 1;
                     break;
@@ -1489,13 +1489,15 @@ static void uart1_sync_demo(void *p) {
                 
                 if (deleted) {
                   syscfg_write(CFG_BLE_KEY_PERIPHERAL_USABLE, &current_key_num, sizeof(current_key_num));
-                  printf("删除成功，当前已保存数量: %d\n", current_key_num);
+                  printf("鍒犻櫎鎴愬姛锛屽綋鍓嶅凡淇濆瓨鏁伴噺: %d\n", current_key_num);
                   uart_send_ble_key_list(0x00FB);
                 } else {
-                  printf("未找到匹配的MAC地址\n");
+                  printf("鏈壘鍒板尮閰嶇殑MAC鍦板潃\n");
+                  uart_send_ble_key_list(0x00FB); // 鍗充娇娌℃壘鍒板尮閰嶇殑锛屼篃鍥炲褰撳墠鍒楄〃锛屽府鍔㎝CU鍚屾鐘舵€?
                 }
               } else {
-                printf("当前没有外设蓝牙钥匙\n");
+                printf("褰撳墠娌℃湁澶栬钃濈墮閽ュ寵\n");
+                uart_send_ble_key_list(0x00FB); // 鍗充娇娌℃湁澶栬钃濈墮閽ュ寵锛屼篃鍥炲褰撳墠鍒楄〃锛屽府鍔㎝CU鍚屾鐘舵€?
               }
             } else if (key_type == 0x03) {
               uint8_t current_key_num = 0;
@@ -1512,7 +1514,7 @@ static void uart1_sync_demo(void *p) {
                   
                   if (memcmp(current_NFC_adders, MAC_addr, 6) == 0) {
                     syscfg_write(cfg_id, delet_buffer, sizeof(delet_buffer));
-                    printf("删除�?d个NFC钥匙\n", i);
+                    printf("鍒犻櫎锟?d涓狽FC閽ュ寵\n", i);
                     current_key_num--;
                     deleted = 1;
                     break;
@@ -1521,22 +1523,22 @@ static void uart1_sync_demo(void *p) {
                 
                 if (deleted) {
                   syscfg_write(CFG_NFC_KEY_PERIPHERAL_USABLE_NUM, &current_key_num, sizeof(current_key_num));
-                  printf("删除成功，当前已保存数量: %d\n", current_key_num);
+                  printf("鍒犻櫎鎴愬姛锛屽綋鍓嶅凡淇濆瓨鏁伴噺: %d\n", current_key_num);
                   uart_send_ble_key_list(0x00FB);
                 } else {
-                  printf("未找到匹配的NFC地址\n");
+                  printf("鏈壘鍒板尮閰嶇殑NFC鍦板潃\n");
                 }
               } else {
-                printf("当前没有NFC钥匙\n");
+                printf("褰撳墠娌℃湁NFC閽ュ寵\n");
               }
             } else if (key_type == 0x01) {
-              printf("手机蓝牙钥匙 - 执行删除操作\n");
+              printf("鎵嬫満钃濈墮閽ュ寵 - 鎵ц鍒犻櫎鎿嶄綔\n");
               
               uint8_t current_key_num = 0;
               int ret = syscfg_read(CFG_PHONE_BLE_KEY_USABLE_NUM, &current_key_num, sizeof(current_key_num));
               
               if (ret <= 0) {
-                printf("读取CFG_PHONE_BLE_KEY_USABLE_NUM失败，使用默认�?\n");
+                printf("璇诲彇CFG_PHONE_BLE_KEY_USABLE_NUM澶辫触锛屼娇鐢ㄩ粯璁わ拷?\n");
                 current_key_num = 0;
               }
               
@@ -1556,7 +1558,7 @@ static void uart1_sync_demo(void *p) {
                   
                   if (!is_all_zero(current_phone_ble_record, sizeof(current_phone_ble_record)) && memcmp(current_phone_ble_record + 3, MAC_addr, 6) == 0) {
                     syscfg_write(config_ids[i], delet_buffer, sizeof(delet_buffer));
-                    printf("删除�?d个手机蓝牙钥匙\n", i + 1);
+                    printf("鍒犻櫎锟?d涓墜鏈鸿摑鐗欓挜鍖橽n", i + 1);
                     current_key_num--;
                     deleted = 1;
                     break;
@@ -1565,56 +1567,62 @@ static void uart1_sync_demo(void *p) {
                 
                 if (deleted) {
                   syscfg_write(CFG_PHONE_BLE_KEY_USABLE_NUM, &current_key_num, sizeof(current_key_num));
-                  printf("删除成功，当前已保存数量: %d\n", current_key_num);
+                  printf("鍒犻櫎鎴愬姛锛屽綋鍓嶅凡淇濆瓨鏁伴噺: %d\n", current_key_num);
                   
-                  // 取消配对操作
-                  printf("取消与该设备的配对\n");
-                  // 这里可以添加取消配对的具体操�?
+                  // 鍙栨秷閰嶅鎿嶄綔
+                  {
+                    bool unpair_ret = ble_list_delete_device(MAC_addr, 0);
+                    printf("鍙栨秷涓庤璁惧鐨勯厤瀵? ret=%d, MAC=%02X:%02X:%02X:%02X:%02X:%02X\\n",
+                           unpair_ret,
+                           MAC_addr[0], MAC_addr[1], MAC_addr[2],
+                           MAC_addr[3], MAC_addr[4], MAC_addr[5]);
+                  }
                   
-                  // 给MCU回复钥匙列表
+                  
+                  // 缁橫CU鍥炲閽ュ寵鍒楄〃
                   uart_send_ble_key_list(0x00FB);
                 } else {
-                  printf("未找到匹配的手机蓝牙钥匙\n");
+                  printf("鏈壘鍒板尮閰嶇殑鎵嬫満钃濈墮閽ュ寵\n");
                 }
               } else {
-                printf("当前没有手机蓝牙钥匙\n");
+                printf("褰撳墠娌℃湁鎵嬫満钃濈墮閽ュ寵\n");
               }
             } else if (key_type == 0x04) {
-              printf("密码钥匙暂不支持删除\n");
+              printf("瀵嗙爜閽ュ寵鏆備笉鏀寔鍒犻櫎\n");
             }
           }
         }
         
         if (uart_protocol_id == 0x00FA)
         {
-          // 清空蓝牙钥匙 - 先分析钥匙类型，然后根据不同的钥匙类型去清空
-          // 数据格式：[设备类型(4字节)]
-          printf("[UART] PID_BLE_CLEARALL_BLUTOOTH_KEY: 清空蓝牙钥匙\n");
+          // 娓呯┖钃濈墮閽ュ寵 - 鍏堝垎鏋愰挜鍖欑被鍨嬶紝鐒跺悗鏍规嵁涓嶅悓鐨勯挜鍖欑被鍨嬪幓娓呯┖
+          // 鏁版嵁鏍煎紡锛歔璁惧绫诲瀷(4瀛楄妭)]
+          printf("[UART] PID_BLE_CLEARALL_BLUTOOTH_KEY: 娓呯┖钃濈墮閽ュ寵\n");
           if (data_length >= 4) {
             uint8_t device_type[4];
             memcpy(device_type, uart_data, 4);
             
-            printf("设备类型: %02X %02X %02X %02X\n",
+            printf("璁惧绫诲瀷: %02X %02X %02X %02X\n",
                    device_type[0], device_type[1], device_type[2], device_type[3]);
             
             uint8_t key_type = device_type[3];
             
             switch (key_type) {
               case 0x01:
-                printf("手机蓝牙钥匙\n");
+                printf("鎵嬫満钃濈墮閽ュ寵\n");
                 break;
               case 0x02:
               case 0xFE:
-                printf("外设蓝牙钥匙\n");
+                printf("澶栬钃濈墮閽ュ寵\n");
                 break;
               case 0x03:
-                printf("NFC钥匙\n");
+                printf("NFC閽ュ寵\n");
                 break;
               case 0x04:
-                printf("密码钥匙\n");
+                printf("瀵嗙爜閽ュ寵\n");
                 break;
               default:
-                printf("未知钥匙类型: 0x%02X\n", key_type);
+                printf("鏈煡閽ュ寵绫诲瀷: 0x%02X\n", key_type);
                 break;
             }
             
@@ -1627,7 +1635,7 @@ static void uart1_sync_demo(void *p) {
               
               uint8_t state_flag = 0x00;
               syscfg_write(CFG_BLE_KEY_PERIPHERAL_USABLE, &state_flag, sizeof(state_flag));
-              printf("清空所有外设蓝牙钥匙成功\n");
+              printf("娓呯┖鎵€鏈夊璁捐摑鐗欓挜鍖欐垚鍔焅n");
               uart_send_ble_key_list(0x00FB);
             } else if (key_type == 0x03) {
               uint8_t empty_buffer[16] = {0};
@@ -1637,42 +1645,42 @@ static void uart1_sync_demo(void *p) {
               
               uint8_t state_flag = 0x00;
               syscfg_write(CFG_NFC_KEY_PERIPHERAL_USABLE_NUM, &state_flag, sizeof(state_flag));
-              printf("清空所有NFC钥匙成功\n");
+              printf("娓呯┖鎵€鏈塏FC閽ュ寵鎴愬姛\n");
               uart_send_ble_key_list(0x00FB);
             } else if (key_type == 0x01) {
-              printf("手机蓝牙钥匙暂不支持清空\n");
+              printf("鎵嬫満钃濈墮閽ュ寵鏆備笉鏀寔娓呯┖\n");
             } else if (key_type == 0x04) {
-              printf("密码钥匙暂不支持清空\n");
+              printf("瀵嗙爜閽ュ寵鏆備笉鏀寔娓呯┖\n");
             }
           }
         }
         
         if (uart_protocol_id == 0x00FB)
         {
-          // 获取所有蓝牙钥�?- 基于send_ble_key_list逻辑
-          printf("[UART] PID_BLE_GETALL_BLUTOOTH_KEY: 获取所有蓝牙钥匙\n");
+          // 鑾峰彇鎵€鏈夎摑鐗欓挜锟?- 鍩轰簬send_ble_key_list閫昏緫
+          printf("[UART] PID_BLE_GETALL_BLUTOOTH_KEY: 鑾峰彇鎵€鏈夎摑鐗欓挜鍖橽n");
           uart_send_ble_key_list(0x00FB);
         }
         
         if (uart_protocol_id == 0x00FC)
         {
-          // 获取密码钥匙
-          printf("[UART] PID_GET_PASSWORD_KEY: 获取密码钥匙\n");
+          // 鑾峰彇瀵嗙爜閽ュ寵
+          printf("[UART] PID_GET_PASSWORD_KEY: 鑾峰彇瀵嗙爜閽ュ寵\n");
           
-          // 保存接收到的密码数据到配置项
+          // 淇濆瓨鎺ユ敹鍒扮殑瀵嗙爜鏁版嵁鍒伴厤缃」
           if (uart_data != NULL && data_length >= 4) {
-            // 密码数据在最后的4字节
+            // 瀵嗙爜鏁版嵁鍦ㄦ渶鍚庣殑4瀛楄妭
             uint8_t password_data[4] = {0};
             int start_idx = data_length - 4;
             memcpy(password_data, &uart_data[start_idx], 4);
             
-            printf("保存密码钥匙: %02X%02X%02X%02X\n", password_data[0], password_data[1], password_data[2], password_data[3]);
+            printf("淇濆瓨瀵嗙爜閽ュ寵: %02X%02X%02X%02X\n", password_data[0], password_data[1], password_data[2], password_data[3]);
             syscfg_write(CFG_VEHICLE_PASSWORD_UNLOCK, password_data, 4);
           }
           
           uart_send_password_key_list(0x00FC);
         }
-        /*OTA 逻辑*/
+        /*OTA 閫昏緫*/
         if (uart_protocol_id == 0x55AA)
         {
           int ota_ret = dual_ota_app_data_deal(uart_protocol_id, uart_data, data_length);
@@ -1683,18 +1691,18 @@ static void uart1_sync_demo(void *p) {
         
         if (uart_protocol_id == 0x00A1)
         {
-          /* 查看个性音效传输报�?*/
+          /* 鏌ョ湅涓€ч煶鏁堜紶杈撴姤锟?*/
           printf("[UART] Received cmd 0x00A1: Query transfer report\n");
           
-          // 读取报告文件
+          // 璇诲彇鎶ュ憡鏂囦欢
           const char *report_path = "mnt/sdfile/app/uwav/transfer_report.txt";
           FILE *fp = fopen(report_path, "r");
           
           if (!fp) {
-            // 报告文件不存在，提供更详细的诊断信息
+            // 鎶ュ憡鏂囦欢涓嶅瓨鍦紝鎻愪緵鏇磋缁嗙殑璇婃柇淇℃伅
             printf("[UART] Report file not found: %s\n", report_path);
             
-            // 先尝试创�?uwav 目录
+            // 鍏堝皾璇曞垱锟?uwav 鐩綍
             int mkdir_ret = fmk_dir("mnt/sdfile/app", "/uwav", 0);
             if (mkdir_ret == 0) {
               printf("[UART] uwav directory created successfully\n");
@@ -1704,7 +1712,7 @@ static void uart1_sync_demo(void *p) {
               printf("[UART] mkdir uwav ret=%d\n", mkdir_ret);
             }
             
-            // 检查是否有传输正在进行
+            // 妫€鏌ユ槸鍚︽湁浼犺緭姝ｅ湪杩涜
             extern uint8_t is_file_transfer_started;
             extern uint32_t file_write_offset;
             extern uint32_t total_file_size;
@@ -1713,52 +1721,52 @@ static void uart1_sync_demo(void *p) {
             int status_len;
             
             if (is_file_transfer_started) {
-              // 传输正在进行�?
+              // 浼犺緭姝ｅ湪杩涜锟?
               status_len = snprintf((char*)status_buf, sizeof(status_buf),
-                "传输进行�? %u/%u bytes (%.1f%%)\n"
-                "请等待传输完成后再查询报告。\n",
+                "浼犺緭杩涜锟? %u/%u bytes (%.1f%%)\n"
+                "璇风瓑寰呬紶杈撳畬鎴愬悗鍐嶆煡璇㈡姤鍛娿€俓n",
                 file_write_offset, total_file_size,
                 total_file_size ? (file_write_offset * 100.0f / total_file_size) : 0.0f);
               printf("[UART] Transfer in progress: %u/%u bytes\n", file_write_offset, total_file_size);
             } else {
-              // 没有传输记录
+              // 娌℃湁浼犺緭璁板綍
               status_len = snprintf((char*)status_buf, sizeof(status_buf),
-                "未找到传输报告文件。\n"
-                "请先通过APP传输个性音效，传输完成后会自动生成报告。\n\n"
-                "可能原因：\n"
-                "1. 尚未进行过个性音效传输\n"
-                "2. 上次传输未完成或中断\n"
-                "3. 上次传输失败\n\n"
-                "提示：请使用APP重新传输音效文件。\n");
+                "鏈壘鍒颁紶杈撴姤鍛婃枃浠躲€俓n"
+                "璇峰厛閫氳繃APP浼犺緭涓€ч煶鏁堬紝浼犺緭瀹屾垚鍚庝細鑷姩鐢熸垚鎶ュ憡銆俓n\n"
+                "鍙兘鍘熷洜锛歕n"
+                "1. 灏氭湭杩涜杩囦釜鎬ч煶鏁堜紶杈揬n"
+                "2. 涓婃浼犺緭鏈畬鎴愭垨涓柇\n"
+                "3. 涓婃浼犺緭澶辫触\n\n"
+                "鎻愮ず锛氳浣跨敤APP閲嶆柊浼犺緭闊虫晥鏂囦欢銆俓n");
               printf("[UART] No transfer history found\n");
             }
             
             uart1_send_toMCU(0x00A1, status_buf, status_len);
           } else {
-            // 读取整个文件内容并分段发�?
+            // 璇诲彇鏁翠釜鏂囦欢鍐呭骞跺垎娈靛彂锟?
             uint8_t read_buf[256];
-            uint8_t send_buf[UART_MAX_DATA_LEN - 50]; // 留一些余�?
+            uint8_t send_buf[UART_MAX_DATA_LEN - 50]; // 鐣欎竴浜涗綑锟?
             uint16_t buf_pos = 0;
             int read_len;
             
             printf("[UART] Reading transfer report...\n");
             
-            // 循环读取文件内容
+            // 寰幆璇诲彇鏂囦欢鍐呭
             while ((read_len = fread(fp, read_buf, sizeof(read_buf))) > 0) {
-              // 逐字节处理，遇到换行或缓冲区满时发�?
+              // 閫愬瓧鑺傚鐞嗭紝閬囧埌鎹㈣鎴栫紦鍐插尯婊℃椂鍙戯拷?
               for (int i = 0; i < read_len; i++) {
                 send_buf[buf_pos++] = read_buf[i];
                 
-                // 如果缓冲区快满了，先发�?
+                // 濡傛灉缂撳啿鍖哄揩婊′簡锛屽厛鍙戯拷?
                 if (buf_pos >= sizeof(send_buf) - 1) {
                   uart1_send_toMCU(0x00A1, send_buf, buf_pos);
-                  os_time_dly(2); // 短暂延时避免数据拥塞
+                  os_time_dly(2); // 鐭殏寤舵椂閬垮厤鏁版嵁鎷ュ
                   buf_pos = 0;
                 }
               }
             }
             
-            // 发送剩余数�?
+            // 鍙戦€佸墿浣欐暟锟?
             if (buf_pos > 0) {
               uart1_send_toMCU(0x00A1, send_buf, buf_pos);
             }
@@ -1769,24 +1777,24 @@ static void uart1_sync_demo(void *p) {
         }
         if (uart_protocol_id == 0x00A2)
         {
-          /* 从音频资源区播放音频 - 使用 tone_table 索引 */
+          /* 浠庨煶棰戣祫婧愬尯鎾斁闊抽 - 浣跨敤 tone_table 绱㈠紩 */
           printf("[UART] Received cmd 0x00A2: Play tone by index\n");
           
-          // 协议数据格式�?
-          // [tone_index 1字节 �?2字节(大端)] 对应 tone_table 的索�?
-          // 例如�?
-          //   0x00 -> 播放 IDEX_TONE_USER_001 (tone0.*)
-          //   0x13 -> 播放 tone19.*
-          //   122  -> 播放 IDEX_TONE_USER_123 (test11111.*)
+          // 鍗忚鏁版嵁鏍煎紡锟?
+          // [tone_index 1瀛楄妭 锟?2瀛楄妭(澶х)] 瀵瑰簲 tone_table 鐨勭储锟?
+          // 渚嬪锟?
+          //   0x00 -> 鎾斁 IDEX_TONE_USER_001 (tone0.*)
+          //   0x13 -> 鎾斁 tone19.*
+          //   122  -> 鎾斁 IDEX_TONE_USER_123 (test11111.*)
           
-          uint8_t tone_index = IDEX_TONE_USER_001; // 默认索引（tone0.*�?
+          uint8_t tone_index = IDEX_TONE_USER_001; // 榛樿绱㈠紩锛坱one0.*锟?
           
           if (uart_data != NULL && data_length > 0) {
-            // 支持 1字节 �?2字节(BCD格式) 索引
+            // 鏀寔 1瀛楄妭 锟?2瀛楄妭(BCD鏍煎紡) 绱㈠紩
             uint16_t raw_value = 0;
             if (data_length >= 2) {
-                // BCD解析：每个字节的�?位和�?位分别代表十位和个位
-                // 例如 0x01 0x11 -> 1*100 + 1*10 + 1 = 111
+                // BCD瑙ｆ瀽锛氭瘡涓瓧鑺傜殑锟?浣嶅拰锟?浣嶅垎鍒唬琛ㄥ崄浣嶅拰涓綅
+                // 渚嬪 0x01 0x11 -> 1*100 + 1*10 + 1 = 111
                 uint8_t bcd1 = uart_data[0];
                 uint8_t bcd2 = uart_data[1];
                 raw_value = ((bcd1 >> 4) * 10 + (bcd1 & 0x0F)) * 100 +
@@ -1795,7 +1803,7 @@ static void uart1_sync_demo(void *p) {
                 raw_value = uart_data[0];
             }
             
-            // 协议值直接表示音频编号：0 -> tone0, 19 -> tone19
+            // 鍗忚鍊肩洿鎺ヨ〃绀洪煶棰戠紪鍙凤細0 -> tone0, 19 -> tone19
             if (raw_value <= 122) {
               tone_index = IDEX_TONE_USER_001 + raw_value;
               printf("[UART] Raw value: %u -> tone_table index: %u\n", raw_value, tone_index);
@@ -1806,12 +1814,12 @@ static void uart1_sync_demo(void *p) {
             printf("[UART] No data, using default tone index\n");
           }
           
-          // 使用 tone_play_by_path 直接播放，因�?tone_index 数组不完�?
+          // 浣跨敤 tone_play_by_path 鐩存帴鎾斁锛屽洜锟?tone_index 鏁扮粍涓嶅畬锟?
           extern int tone_play_by_path(const char *name, u8 preemption);
           extern const char *tone_table[];
           extern const int tone_table_size;
           
-          // �?tone_table 获取实际文件路径
+          // 锟?tone_table 鑾峰彇瀹為檯鏂囦欢璺緞
           const char *tone_path = NULL;
           if (tone_index < tone_table_size) {
             tone_path = tone_table[tone_index];
@@ -1822,7 +1830,7 @@ static void uart1_sync_demo(void *p) {
           }
           printf("[UART] Attempting to play: tone_table[%u] = %s\n", tone_index, tone_path);
           
-          // 检查文件是否存�?
+          // 妫€鏌ユ枃浠舵槸鍚﹀瓨锟?
           void *test_fp = fopen(tone_path, "r");
           if (test_fp) {
             fclose(test_fp);
@@ -1833,12 +1841,12 @@ static void uart1_sync_demo(void *p) {
             goto tone_play_err;
           }
           
-          // 直接使用路径播放
-          int ret = tone_play_by_path(tone_path, 1); // preemption=1 优先播放
+          // 鐩存帴浣跨敤璺緞鎾斁
+          int ret = tone_play_by_path(tone_path, 1); // preemption=1 浼樺厛鎾斁
           
-          // 发送结果给 MCU
+          // 鍙戦€佺粨鏋滅粰 MCU
           uint8_t resp[2];
-          resp[0] = (ret == 0) ? 0x01 : 0x00; // 0x01 = 成功, 0x00 = 失败
+          resp[0] = (ret == 0) ? 0x01 : 0x00; // 0x01 = 鎴愬姛, 0x00 = 澶辫触
           resp[1] = tone_index;
           uart1_send_toMCU(0x00A2, resp, 2);
           
@@ -1847,37 +1855,37 @@ static void uart1_sync_demo(void *p) {
           } else {
             printf("[UART] Playing tone_table[%u] failed: ret=%d\n", tone_index, ret);
 tone_play_err:
-            // 播放失败时直接返回，避免对无效路径继续解码导致异�?
+            // 鎾斁澶辫触鏃剁洿鎺ヨ繑鍥烇紝閬垮厤瀵规棤鏁堣矾寰勭户缁В鐮佸鑷村紓锟?
             resp[0] = 0x00;
             uart1_send_toMCU(0x00A2, resp, 2);
           }
         }
         if (uart_protocol_id == 0x00A3)
         {
-          /* 播放自定义音效槽位（已传输的个性音效） */
+          /* 鎾斁鑷畾涔夐煶鏁堟Ы浣嶏紙宸蹭紶杈撶殑涓€ч煶鏁堬級 */
           printf("[UART] Received cmd 0x00A3: Play custom tone from slot\n");
           
-          // 协议数据格式�?
-          // [tone_type 1字节] (0~3，对应自定义音效槽位 uwtg0~UWTG3)
-          // 如果没有数据，默认播放槽�?
+          // 鍗忚鏁版嵁鏍煎紡锟?
+          // [tone_type 1瀛楄妭] (0~3锛屽搴旇嚜瀹氫箟闊虫晥妲戒綅 uwtg0~UWTG3)
+          // 濡傛灉娌℃湁鏁版嵁锛岄粯璁ゆ挱鏀炬Ы锟?
           
           uint8_t tone_type = 0;
           if (uart_data != NULL && data_length > 0) {
             tone_type = uart_data[0];
             if (tone_type > 3) {
-              tone_type = 0; // 超出范围，使用槽�?
+              tone_type = 0; // 瓒呭嚭鑼冨洿锛屼娇鐢ㄦЫ锟?
             }
           }
           
           printf("[UART] Playing custom tone from slot: %u\n", tone_type);
           
-          // 调用自定义音效播放函�?
-          // 该函数会检�?meta 信息，确认音效是否已传输
-          bool ret = user_custom_tone_play_if_exist(tone_type, 1); // preemption=1 优先播放
+          // 璋冪敤鑷畾涔夐煶鏁堟挱鏀惧嚱锟?
+          // 璇ュ嚱鏁颁細妫€锟?meta 淇℃伅锛岀‘璁ら煶鏁堟槸鍚﹀凡浼犺緭
+          bool ret = user_custom_tone_play_if_exist(tone_type, 1); // preemption=1 浼樺厛鎾斁
           
-          // 发送结果给 MCU
+          // 鍙戦€佺粨鏋滅粰 MCU
           uint8_t resp[2];
-          resp[0] = ret ? 0x01 : 0x00; // 0x01 = 成功播放, 0x00 = 音效不存在或播放失败
+          resp[0] = ret ? 0x01 : 0x00; // 0x01 = 鎴愬姛鎾斁, 0x00 = 闊虫晥涓嶅瓨鍦ㄦ垨鎾斁澶辫触
           resp[1] = tone_type;
           uart1_send_toMCU(0x00A3, resp, 2);
           
@@ -1889,17 +1897,17 @@ tone_play_err:
         }
         if (uart_protocol_id == 0x00A4)
         {
-          /* 查询所有自定义音效槽位状�?*/
+          /* 鏌ヨ鎵€鏈夎嚜瀹氫箟闊虫晥妲戒綅鐘讹拷?*/
           printf("[UART] Received cmd 0x00A4: Query custom tone slots status\n");
           
-          // 返回格式�?
+          // 杩斿洖鏍煎紡锟?
           // [slot0_status] [slot0_size_hi] [slot0_size_lo]
           // [slot1_status] [slot1_size_hi] [slot1_size_lo]
           // [slot2_status] [slot2_size_hi] [slot2_size_lo]
           // [slot3_status] [slot3_size_hi] [slot3_size_lo]
-          // status: 0x00=�? 0x01=有效
+          // status: 0x00=锟? 0x01=鏈夋晥
           
-          uint8_t resp[16]; // 4个槽�?* 4字节(状�?大小3字节)
+          uint8_t resp[16]; // 4涓Ы锟?* 4瀛楄妭(鐘讹拷?澶у皬3瀛楄妭)
           memset(resp, 0, sizeof(resp));
           
           printf("\n========== CUSTOM TONE SLOTS STATUS ==========\n");
@@ -1917,18 +1925,18 @@ tone_play_err:
                 meta.magic == CUSTOM_TONE_META_MAGIC && 
                 meta.tone_type == slot &&
                 meta.file_size > 0) {
-              // 槽位有效
-              resp[slot * 4] = 0x01;  // status = 有效
-              resp[slot * 4 + 1] = (uint8_t)(meta.file_size >> 16);  // size 高字�?
-              resp[slot * 4 + 2] = (uint8_t)(meta.file_size >> 8);   // size 中字�?
-              resp[slot * 4 + 3] = (uint8_t)(meta.file_size & 0xFF); // size 低字�?
+              // 妲戒綅鏈夋晥
+              resp[slot * 4] = 0x01;  // status = 鏈夋晥
+              resp[slot * 4 + 1] = (uint8_t)(meta.file_size >> 16);  // size 楂樺瓧锟?
+              resp[slot * 4 + 2] = (uint8_t)(meta.file_size >> 8);   // size 涓瓧锟?
+              resp[slot * 4 + 3] = (uint8_t)(meta.file_size & 0xFF); // size 浣庡瓧锟?
               
               printf("[SLOT %u] VALID - path=%s, size=%u, crc=0x%08X\n", 
                      slot, path ? path : "null", 
                      (unsigned)meta.file_size, (unsigned)meta.crc32);
             } else {
-              // 槽位空或无效
-              resp[slot * 4] = 0x00;  // status = �?
+              // 妲戒綅绌烘垨鏃犳晥
+              resp[slot * 4] = 0x00;  // status = 锟?
               resp[slot * 4 + 1] = 0;
               resp[slot * 4 + 2] = 0;
               resp[slot * 4 + 3] = 0;
@@ -1939,7 +1947,7 @@ tone_play_err:
           
           printf("================================================\n\n");
           
-          // 发送结果给 MCU
+          // 鍙戦€佺粨鏋滅粰 MCU
           uart1_send_toMCU(0x00A4, resp, 16);
           printf("[UART] Slots status sent\n");
         }
@@ -1949,13 +1957,13 @@ tone_play_err:
         parse_off += frame_len;
       }
     } else {
-      /* 未读到数据，短暂让出调度，避免长时间阻塞导致 timer_no_response */
+      /* 鏈鍒版暟鎹紝鐭殏璁╁嚭璋冨害锛岄伩鍏嶉暱鏃堕棿闃诲瀵艰嚧 timer_no_response */
       os_time_dly(1);
     }
   }
 
-  // 短暂延时，避免过度占用CPU
-  os_time_dly(10); // 延时10ms
+  // 鐭殏寤舵椂锛岄伩鍏嶈繃搴﹀崰鐢–PU
+  os_time_dly(10); // 寤舵椂10ms
 }
 
 void uart1_init(void) {
@@ -2006,7 +2014,7 @@ void uart1_send(u8 *data, u16 len) {
 
 
 void uart_send_ble_key_list(uint16_t protocol_id) {
-  printf("[UART] uart_send_ble_key_list: 发送蓝牙钥匙列表\n");
+  printf("[UART] uart_send_ble_key_list: 鍙戦€佽摑鐗欓挜鍖欏垪琛╘n");
 
   static uint8_t key_list_buffer[269];
   memset(key_list_buffer, 0, sizeof(key_list_buffer));
@@ -2036,11 +2044,11 @@ void uart_send_ble_key_list(uint16_t protocol_id) {
   uint8_t total_key_num = phone_ble_key_usable_num + ble_key_peripheral_actual_num;
   if (total_key_num > 5) {
     total_key_num = 5;
-    printf("总钥匙串数量超过5，限制为5\n");
+    printf("鎬婚挜鍖欎覆鏁伴噺瓒呰繃5锛岄檺鍒朵负5\n");
   }
 
   key_list_buffer[offset++] = total_key_num;
-  printf("总钥匙串数量: %d\n", total_key_num);
+  printf("鎬婚挜鍖欎覆鏁伴噺: %d\n", total_key_num);
 
   uint32_t config_ids[] = {
       CFG_PHONE_BLE_KEY_DELETE_ID_1,
@@ -2068,7 +2076,7 @@ void uart_send_ble_key_list(uint16_t protocol_id) {
       offset += 3;
       key_list_buffer[offset++] = 0x00;
 
-      printf("手机蓝牙钥匙 %d: 设备类型=0x00000001, MAC=%02X:%02X:%02X:%02X:%02X:%02X, 密码=%02X%02X%02X\n",
+      printf("鎵嬫満钃濈墮閽ュ寵 %d: 璁惧绫诲瀷=0x00000001, MAC=%02X:%02X:%02X:%02X:%02X:%02X, 瀵嗙爜=%02X%02X%02X\n",
              (int)(i + 1),
              phone_ble_key_data[3], phone_ble_key_data[4], phone_ble_key_data[5],
              phone_ble_key_data[6], phone_ble_key_data[7], phone_ble_key_data[8],
@@ -2093,7 +2101,7 @@ void uart_send_ble_key_list(uint16_t protocol_id) {
     memcpy(key_list_buffer + offset, ble_peripheral_slots[i] + 6, 4);
     offset += 4;
 
-    printf("外设蓝牙钥匙 %d: 设备类型=0x00000002, MAC=%02X:%02X:%02X:%02X:%02X:%02X, 密码=%02X%02X%02X%02X\n",
+    printf("澶栬钃濈墮閽ュ寵 %d: 璁惧绫诲瀷=0x00000002, MAC=%02X:%02X:%02X:%02X:%02X:%02X, 瀵嗙爜=%02X%02X%02X%02X\n",
            i + 1,
            ble_peripheral_slots[i][0], ble_peripheral_slots[i][1],
            ble_peripheral_slots[i][2], ble_peripheral_slots[i][3],
@@ -2109,7 +2117,7 @@ key_list_send:
 }
 
 static void uart_send_password_key_list(uint16_t protocol_id) {
-  printf("[UART] uart_send_password_key_list: 发送密码钥匙列表\n");
+  printf("[UART] uart_send_password_key_list: 鍙戦€佸瘑鐮侀挜鍖欏垪琛╘n");
   
   static uint8_t password_key_buffer[269];
   memset(password_key_buffer, 0, sizeof(password_key_buffer));
@@ -2132,10 +2140,10 @@ static void uart_send_password_key_list(uint16_t protocol_id) {
     memcpy(password_key_buffer + offset, password_data, 4);
     offset += 4;
     
-    printf("密码钥匙: 设备类型=0x00000004, MAC=00:00:00:00:00:00, 密码=%02X%02X%02X%02X\n",
+    printf("瀵嗙爜閽ュ寵: 璁惧绫诲瀷=0x00000004, MAC=00:00:00:00:00:00, 瀵嗙爜=%02X%02X%02X%02X\n",
            password_data[0], password_data[1], password_data[2], password_data[3]);
   } else {
-    printf("未设置密码钥匙\n");
+    printf("鏈缃瘑鐮侀挜鍖橽n");
   }
   
   printf("Total password key data length: %d bytes\n", offset);
@@ -2144,29 +2152,29 @@ password_key_send:
   uart1_send_toMCU(protocol_id, password_key_buffer, offset);
 }
 
-//==============================用于串口数据发�?====================================
-uint8_t send_buff_toMCU[269]; // 用于创建最大的发送buff---------->
-                              // 根据派电的协议最大的数据包含269字节
-uint16_t Uart_data_len = 0;    // 用于记录发送的数据长度
+//==============================鐢ㄤ簬涓插彛鏁版嵁鍙戯拷?====================================
+uint8_t send_buff_toMCU[269]; // 鐢ㄤ簬鍒涘缓鏈€澶х殑鍙戦€乥uff---------->
+                              // 鏍规嵁娲剧數鐨勫崗璁渶澶х殑鏁版嵁鍖呭惈269瀛楄妭
+uint16_t Uart_data_len = 0;    // 鐢ㄤ簬璁板綍鍙戦€佺殑鏁版嵁闀垮害
 uint8_t crc[2] = {0};
-uint8_t MAX_SEND_NUM = 3; // 最大发送次�?
+uint8_t MAX_SEND_NUM = 3; // 鏈€澶у彂閫佹锟?
 static volatile u8 g_uart1_tx_pending = 0;
 static u16 g_uart1_tx_pending_len = 0;
 static u8 g_uart1_tx_pending_buf[269];
 /**
- * @brief 用于将数据发送到MCU
+ * @brief 鐢ㄤ簬灏嗘暟鎹彂閫佸埌MCU
  *
- * @param protocol_id 协议ID
- * @param data 数据指针
- * @param len 数据长度
+ * @param protocol_id 鍗忚ID
+ * @param data 鏁版嵁鎸囬拡
+ * @param len 鏁版嵁闀垮害
  */
 bool uart1_send_toMCU(uint16_t protocol_id, uint8_t *data, uint16_t len) {
-  // 重要：不要在这里清除 uart_data，因为它是用来保�?MCU 回复数据的！
-  // 只有在接收到新数据时才更�?uart_data
-  // uart_data = NULL;  // �?删除：不应该在发送时清空接收缓冲�?
-  // data_length = 0;   // �?删除：同�?
+  // 閲嶈锛氫笉瑕佸湪杩欓噷娓呴櫎 uart_data锛屽洜涓哄畠鏄敤鏉ヤ繚锟?MCU 鍥炲鏁版嵁鐨勶紒
+  // 鍙湁鍦ㄦ帴鏀跺埌鏂版暟鎹椂鎵嶆洿锟?uart_data
+  // uart_data = NULL;  // 锟?鍒犻櫎锛氫笉搴旇鍦ㄥ彂閫佹椂娓呯┖鎺ユ敹缂撳啿锟?
+  // data_length = 0;   // 锟?鍒犻櫎锛氬悓锟?
 
-  // 参数校验
+  // 鍙傛暟鏍￠獙
   if (len > UART_MAX_DATA_LEN) {
     printf("uart1_send_toMCU: invalid len %u, max %d\n", len, UART_MAX_DATA_LEN);
     return false;
@@ -2176,52 +2184,52 @@ bool uart1_send_toMCU(uint16_t protocol_id, uint8_t *data, uint16_t len) {
     return false;
   }
 
-  // 计算CRC检验位，使用受限缓冲区以避免在栈上分配可变长度数组
-  uint16_t CRC_len = (uint16_t)(len + 4); // 协议ID(2)+len(2)+data(len)
+  // 璁＄畻CRC妫€楠屼綅锛屼娇鐢ㄥ彈闄愮紦鍐插尯浠ラ伩鍏嶅湪鏍堜笂鍒嗛厤鍙彉闀垮害鏁扮粍
+  uint16_t CRC_len = (uint16_t)(len + 4); // 鍗忚ID(2)+len(2)+data(len)
   static uint8_t crcbuffer[UART_MAX_DATA_LEN + 4];
-  crcbuffer[0] = (uint8_t)(protocol_id >> 8);   // 协议ID高字�?
-  crcbuffer[1] = (uint8_t)(protocol_id & 0xFF); // 协议ID低字�?
-  crcbuffer[2] = (uint8_t)(len >> 8);           // len的高字节
-  crcbuffer[3] = (uint8_t)(len & 0xFF);         // len的低字节
+  crcbuffer[0] = (uint8_t)(protocol_id >> 8);   // 鍗忚ID楂樺瓧锟?
+  crcbuffer[1] = (uint8_t)(protocol_id & 0xFF); // 鍗忚ID浣庡瓧锟?
+  crcbuffer[2] = (uint8_t)(len >> 8);           // len鐨勯珮瀛楄妭
+  crcbuffer[3] = (uint8_t)(len & 0xFF);         // len鐨勪綆瀛楄妭
   if (len > 0) {
-    memcpy(&crcbuffer[4], data, len); // 复制数据
+    memcpy(&crcbuffer[4], data, len); // 澶嶅埗鏁版嵁
   }
 
   UART1_IO_LOG("crcbuffer0:%02x,crcbuffer1:%02x,crcbuffer2:%02x,crcbuffer3:%02x\n",
                crcbuffer[0], crcbuffer[1], crcbuffer[2], crcbuffer[3]);
   // printf("CRC16:");
-  calculateCRC16(crcbuffer, CRC_len, crc); // 计算CRC16校验�?
+  calculateCRC16(crcbuffer, CRC_len, crc); // 璁＄畻CRC16鏍￠獙锟?
   // printf("0x%02X%02X\n", crc[1], crc[0]);
 
-  // 组装发送缓冲，先检查整体长度以避免越界
+  // 缁勮鍙戦€佺紦鍐诧紝鍏堟鏌ユ暣浣撻暱搴︿互閬垮厤瓒婄晫
   const uint16_t overhead = 2 /*head+sync*/ + 2 /*protocol id*/ + 2 /*len*/ + 2 /*crc*/ + 2 /*tail*/;
   if ((uint32_t)len + overhead > sizeof(send_buff_toMCU)) {
     printf("uart1_send_toMCU: payload too large %u, max %zu\n", len, sizeof(send_buff_toMCU) - overhead);
     return false;
   }
 
-  Uart_data_len = 0; // 每次发送前都要将长度清0
-  send_buff_toMCU[Uart_data_len++] = 0xFE; // 头字节以0xFE开�?
-  send_buff_toMCU[Uart_data_len++] = 0xAB; // 同步字节0xAB
-  // 协议ID
+  Uart_data_len = 0; // 姣忔鍙戦€佸墠閮借灏嗛暱搴︽竻0
+  send_buff_toMCU[Uart_data_len++] = 0xFE; // 澶村瓧鑺備互0xFE寮€锟?
+  send_buff_toMCU[Uart_data_len++] = 0xAB; // 鍚屾瀛楄妭0xAB
+  // 鍗忚ID
   send_buff_toMCU[Uart_data_len++] = (uint8_t)(protocol_id >> 8);
   send_buff_toMCU[Uart_data_len++] = (uint8_t)(protocol_id & 0xFF);
-  // 数据长度
+  // 鏁版嵁闀垮害
   send_buff_toMCU[Uart_data_len++] = (uint8_t)(len >> 8);
   send_buff_toMCU[Uart_data_len++] = (uint8_t)(len & 0xFF);
-  // 数据�?
+  // 鏁版嵁锟?
   if (len > 0) {
     memcpy(&send_buff_toMCU[Uart_data_len], data, len);
-    Uart_data_len += len; // 更新数据长度
+    Uart_data_len += len; // 鏇存柊鏁版嵁闀垮害
   }
-  // CRC (低字�? 高字�?
+  // CRC (浣庡瓧锟? 楂樺瓧锟?
   send_buff_toMCU[Uart_data_len++] = crc[0];
   send_buff_toMCU[Uart_data_len++] = crc[1];
-  // 尾字�?(0x0A 0x0D)
+  // 灏惧瓧锟?(0x0A 0x0D)
   send_buff_toMCU[Uart_data_len++] = 0x0A;
   send_buff_toMCU[Uart_data_len++] = 0x0D;
 
-  // 发送数�?
+  // 鍙戦€佹暟锟?
   s32 ret = uart1_send_raw_nonblock(send_buff_toMCU, Uart_data_len);
   if (ret == Uart_data_len) {
     UART1_IO_LOG("uart1 send to MCU:");
@@ -2247,10 +2255,10 @@ bool uart1_send_toMCU(uint16_t protocol_id, uint8_t *data, uint16_t len) {
   return false;
 }
 /**
- * @brief 用于处理串口中断事件
+ * @brief 鐢ㄤ簬澶勭悊涓插彛涓柇浜嬩欢
  *
- * @param uart_num 串口编号
- * @param event 中断事件
+ * @param uart_num 涓插彛缂栧彿
+ * @param event 涓柇浜嬩欢
  */
 static void uart_irq_func(uart_dev uart_num, enum uart_event_v1 event) {
   if (event & UART_EVENT_TX_DONE) {
@@ -2258,15 +2266,15 @@ static void uart_irq_func(uart_dev uart_num, enum uart_event_v1 event) {
   }
 
   if (event & UART_EVENT_RX_TIMEOUT) {
-    // RX 超时事件：表示一帧数据接收完成（帧间隔由 rx_timeout_thresh 决定）�?
-    // 在这里仅置位标志，避免在回调里做大量处理�?
+    // RX 瓒呮椂浜嬩欢锛氳〃绀轰竴甯ф暟鎹帴鏀跺畬鎴愶紙甯ч棿闅旂敱 rx_timeout_thresh 鍐冲畾锛夛拷?
+    // 鍦ㄨ繖閲屼粎缃綅鏍囧織锛岄伩鍏嶅湪鍥炶皟閲屽仛澶ч噺澶勭悊锟?
     g_uart1_rx_frame_ready = 1;
   }
 
   if (event & UART_EVENT_RX_FIFO_OVF) {
     printf("uart[%d] rx fifo ovf", uart_num);
 
-    // 溢出�?DMA/cbuf 可能错乱，主动重置，避免后续一直解析失败�?
+    // 婧㈠嚭锟?DMA/cbuf 鍙兘閿欎贡锛屼富鍔ㄩ噸缃紝閬垮厤鍚庣画涓€鐩磋В鏋愬け璐ワ拷?
     uart_dma_rx_reset(uart_num);
   }
 }
@@ -2280,85 +2288,85 @@ void uart_rx_ptr_analysis(void) {
   }
 }
 /**
- * @brief 用于解析串口接收数据
+ * @brief 鐢ㄤ簬瑙ｆ瀽涓插彛鎺ユ敹鏁版嵁
  *
- * @param rx_data 接收数据指针
- * @param data_len 接收数据长度
- * @return true 解析成功
- * @return false 解析失败
+ * @param rx_data 鎺ユ敹鏁版嵁鎸囬拡
+ * @param data_len 鎺ユ敹鏁版嵁闀垮害
+ * @return true 瑙ｆ瀽鎴愬姛
+ * @return false 瑙ｆ瀽澶辫触
  */
 bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len) {
-  // 指针变空NULL
+  // 鎸囬拡鍙樼┖NULL
   uart_data = NULL;
   uart_rx_data = NULL;
   
-  // 检查开始符
+  // 妫€鏌ュ紑濮嬬
   if (rx_data[0] != 0xFE) {
     printf("Invalid start byte: 0x%02X, expected 0xFE\n", rx_data[0]);
     return false;
   }
   
-  // ==================== 自动识别新旧协议格式 ====================
-  // 旧协议：FE BA + 协议ID(2B) + 长度(2B) + 数据 + CRC + 0A0D
-  // 新协议：FE + 总帧�?2B) + 顺序�?2B) + 长度(2B) + 协议ID(2B) + 数据 + CRC + 0A0D
-  // 判断依据：第二个字节是否�?0xBA
+  // ==================== 鑷姩璇嗗埆鏂版棫鍗忚鏍煎紡 ====================
+  // 鏃у崗璁細FE BA + 鍗忚ID(2B) + 闀垮害(2B) + 鏁版嵁 + CRC + 0A0D
+  // 鏂板崗璁細FE + 鎬诲抚锟?2B) + 椤哄簭锟?2B) + 闀垮害(2B) + 鍗忚ID(2B) + 鏁版嵁 + CRC + 0A0D
+  // 鍒ゆ柇渚濇嵁锛氱浜屼釜瀛楄妭鏄惁锟?0xBA
   
   bool is_old_protocol = (rx_data[1] == 0xBA);
   
   if (is_old_protocol) {
-    // ==================== 旧协议格式解�?====================
+    // ==================== 鏃у崗璁牸寮忚В锟?====================
     printf("[UART] Old protocol format detected\n");
     
-    // 最小包长检查：header(6) + crc(2) + tail(2) = 10字节
+    // 鏈€灏忓寘闀挎鏌ワ細header(6) + crc(2) + tail(2) = 10瀛楄妭
     if (data_len < 10) {
       printf("uart1_parse_packet: packet too short, len=%d\n", data_len);
       return false;
     }
 
-    // 解析协议ID (大端�?
+    // 瑙ｆ瀽鍗忚ID (澶х锟?
     uint16_t protocol_id = (rx_data[2] << 8) | rx_data[3];
     uart_protocol_id = protocol_id;
 
-    // 解析数据长度 (大端�?
+    // 瑙ｆ瀽鏁版嵁闀垮害 (澶х锟?
     data_length = (rx_data[4] << 8) | rx_data[5];
     
-    // 验证 data_length 边界
+    // 楠岃瘉 data_length 杈圭晫
     if (data_length > UART_MAX_DATA_LEN) {
       printf("uart1_parse_packet: invalid data_length=%d (0x%04X), max=%d\n", 
              data_length, data_length, UART_MAX_DATA_LEN);
       return false;
     }
 
-    // 检查整个包是否完整：header(6) + data_length + crc(2) + tail(2)
+    // 妫€鏌ユ暣涓寘鏄惁瀹屾暣锛歨eader(6) + data_length + crc(2) + tail(2)
     uint16_t expected_len = 6 + data_length + 4;
     if (data_len < expected_len) {
       printf("uart1_parse_packet: incomplete packet data_len=%d expected=%d\n", data_len, expected_len);
       return false;
     }
     
-    // 提取数据指针（数据从�?字节开始）
+    // 鎻愬彇鏁版嵁鎸囬拡锛堟暟鎹粠锟?瀛楄妭寮€濮嬶級
     uart_data = &rx_data[6];
     
-    // CRC 两字节位�?data 后面
+    // CRC 涓ゅ瓧鑺備綅锟?data 鍚庨潰
     uint16_t crc_idx = 6 + data_length;
     uint8_t received_crc_low = rx_data[crc_idx];
     uint8_t received_crc_high = rx_data[crc_idx + 1];
     
-    // 验证尾字节（位于 crc 后面两个字节�?
+    // 楠岃瘉灏惧瓧鑺傦紙浣嶄簬 crc 鍚庨潰涓や釜瀛楄妭锟?
     uint16_t tail_idx = crc_idx + 2;
     if (rx_data[tail_idx] != 0x0A || rx_data[tail_idx + 1] != 0x0D) {
       printf("Invalid tail bytes: 0x%02X%02X, expected 0x0A0D\n", rx_data[tail_idx], rx_data[tail_idx + 1]);
       return false;
     }
     
-    // 输出解析结果
+    // 杈撳嚭瑙ｆ瀽缁撴灉
     printf("uart1 parse packet: protocol_id=0x%04X, data_length=%d, data=",
            protocol_id, data_length);
     put_buf(uart_data, data_length);
     printf(", crc=0x%02X%02X, tail=0x%02X%02X\n", received_crc_low,
            received_crc_high, rx_data[tail_idx], rx_data[tail_idx + 1]);
     
-    // 重置多包状态（旧协议不支持多包�?
+    // 閲嶇疆澶氬寘鐘舵€侊紙鏃у崗璁笉鏀寔澶氬寘锟?
     g_is_multi_packet_mode = false;
     g_expected_packet_seq = 1;
     g_multi_packet_offset = 0;
@@ -2367,91 +2375,91 @@ bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len) {
     return true;
     
   } else {
-    // ==================== 新协议格式解�?====================
+    // ==================== 鏂板崗璁牸寮忚В锟?====================
     printf("[UART] New protocol format detected\n");
     
-    // 最小包长：header(9) + crc(2) + tail(2) = 13字节
+    // 鏈€灏忓寘闀匡細header(9) + crc(2) + tail(2) = 13瀛楄妭
     if (data_len < 13) {
       printf("uart1_parse_packet: packet too short, len=%d\n", data_len);
       return false;
     }
 
-    // 解析总帧数量 (大端�?
+    // 瑙ｆ瀽鎬诲抚鏁伴噺 (澶х锟?
     uint16_t total_frames = (rx_data[1] << 8) | rx_data[2];
     
-    // 解析顺序�?(大端�?
+    // 瑙ｆ瀽椤哄簭锟?(澶х锟?
     uint16_t seq_num = (rx_data[3] << 8) | rx_data[4];
     
-    // 解析数据长度 (大端�?
+    // 瑙ｆ瀽鏁版嵁闀垮害 (澶х锟?
     data_length = (rx_data[5] << 8) | rx_data[6];
     
-    // 解析协议ID (大端�?
+    // 瑙ｆ瀽鍗忚ID (澶х锟?
     uint16_t protocol_id = (rx_data[7] << 8) | rx_data[8];
     
     printf("[UART] Packet: total_frames=%d, seq=%d, len=%d, protocol=0x%04X\n",
            total_frames, seq_num, data_length, protocol_id);
     
-    // 验证 data_length 边界
+    // 楠岃瘉 data_length 杈圭晫
     if (data_length > 256) {
       printf("uart1_parse_packet: invalid data_length=%d, max=256\n", data_length);
       return false;
     }
 
-    // 检查整个包是否完整：header(9) + data_length + crc(2) + tail(2)
+    // 妫€鏌ユ暣涓寘鏄惁瀹屾暣锛歨eader(9) + data_length + crc(2) + tail(2)
     uint16_t expected_len = 9 + data_length + 4;
     if (data_len < expected_len) {
       printf("uart1_parse_packet: incomplete packet data_len=%d expected=%d\n", data_len, expected_len);
       return false;
     }
     
-    // 提取数据指针（数据从�?字节开始）
+    // 鎻愬彇鏁版嵁鎸囬拡锛堟暟鎹粠锟?瀛楄妭寮€濮嬶級
     uint8_t *payload_data = &rx_data[9];
     
-    // CRC 两字节位�?data 后面
+    // CRC 涓ゅ瓧鑺備綅锟?data 鍚庨潰
     uint16_t crc_idx = 9 + data_length;
     uint8_t received_crc_low = rx_data[crc_idx];
     uint8_t received_crc_high = rx_data[crc_idx + 1];
     
-    // 验证尾字节（位于 crc 后面两个字节�?
+    // 楠岃瘉灏惧瓧鑺傦紙浣嶄簬 crc 鍚庨潰涓や釜瀛楄妭锟?
     uint16_t tail_idx = crc_idx + 2;
     if (rx_data[tail_idx] != 0x0A || rx_data[tail_idx + 1] != 0x0D) {
       printf("Invalid tail bytes: 0x%02X%02X, expected 0x0A0D\n", rx_data[tail_idx], rx_data[tail_idx + 1]);
       return false;
     }
     
-    // ==================== 多包拼接逻辑 ====================
+    // ==================== 澶氬寘鎷兼帴閫昏緫 ====================
     
-    // 判断是否为单包模�?
+    // 鍒ゆ柇鏄惁涓哄崟鍖呮ā锟?
     bool is_single_packet = (total_frames == 1 && seq_num == 1);
     
     if (is_single_packet) {
-      // ========== 单包模式：直接处�?==========
+      // ========== 鍗曞寘妯″紡锛氱洿鎺ュ锟?==========
       printf("[UART] Single packet mode\n");
       uart_protocol_id = protocol_id;
       uart_data = payload_data;
       
-      // 重置多包状态（避免上一次多包传输的残留状态）
+      // 閲嶇疆澶氬寘鐘舵€侊紙閬垮厤涓婁竴娆″鍖呬紶杈撶殑娈嬬暀鐘舵€侊級
       g_is_multi_packet_mode = false;
       g_expected_packet_seq = 1;
       g_multi_packet_offset = 0;
       g_multi_packet_protocol = 0;
       
     } else {
-      // ========== 多包模式：拼接处�?==========
+      // ========== 澶氬寘妯″紡锛氭嫾鎺ュ锟?==========
       
       if (seq_num == 1) {
-        // 第一包：初始化多包缓冲区
+        // 绗竴鍖咃細鍒濆鍖栧鍖呯紦鍐插尯
         printf("[UART] Multi-packet mode start: total=%d frames\n", total_frames);
         g_is_multi_packet_mode = true;
         g_multi_packet_protocol = protocol_id;
         g_expected_packet_seq = 1;
         g_multi_packet_offset = 0;
         
-        // 清空缓冲�?
+        // 娓呯┖缂撳啿锟?
         memset(g_multi_packet_buffer, 0, MAX_MULTI_PACKET_SIZE);
       }
       
-      // 验证协议ID一致�?
+      // 楠岃瘉鍗忚ID涓€鑷达拷?
       if (protocol_id != g_multi_packet_protocol) {
         printf("[UART] ERROR: Protocol ID mismatch! expected=0x%04X, got=0x%04X\n",
                g_multi_packet_protocol, protocol_id);
@@ -2459,7 +2467,7 @@ bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len) {
         return false;
       }
       
-      // 验证顺序号连续�?
+      // 楠岃瘉椤哄簭鍙疯繛缁拷?
       if (seq_num != g_expected_packet_seq) {
         printf("[UART] ERROR: Sequence mismatch! expected=%d, got=%d\n",
                g_expected_packet_seq, seq_num);
@@ -2467,7 +2475,7 @@ bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len) {
         return false;
       }
       
-      // 检查缓冲区是否溢出
+      // 妫€鏌ョ紦鍐插尯鏄惁婧㈠嚭
       if (g_multi_packet_offset + data_length > MAX_MULTI_PACKET_SIZE) {
         printf("[UART] ERROR: Multi-packet buffer overflow! offset=%d, len=%d, max=%d\n",
                g_multi_packet_offset, data_length, MAX_MULTI_PACKET_SIZE);
@@ -2475,7 +2483,7 @@ bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len) {
         return false;
       }
       
-      // 拼接数据到缓冲区
+      // 鎷兼帴鏁版嵁鍒扮紦鍐插尯
       memcpy(&g_multi_packet_buffer[g_multi_packet_offset], payload_data, data_length);
       g_multi_packet_offset += data_length;
       g_expected_packet_seq++;
@@ -2483,29 +2491,29 @@ bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len) {
       printf("[UART] Packet %d/%d received, offset=%d bytes\n",
              seq_num, total_frames, g_multi_packet_offset);
       
-      // 判断是否为最后一�?
+      // 鍒ゆ柇鏄惁涓烘渶鍚庝竴锟?
       if (seq_num == total_frames) {
-        // ========== 最后一包：完成拼接，开始处�?==========
+        // ========== 鏈€鍚庝竴鍖咃細瀹屾垚鎷兼帴锛屽紑濮嬪锟?==========
         printf("[UART] Multi-packet complete! Total %d bytes\n", g_multi_packet_offset);
         
         uart_protocol_id = g_multi_packet_protocol;
         uart_data = g_multi_packet_buffer;
         data_length = g_multi_packet_offset;
         
-        // 重置多包状�?
+        // 閲嶇疆澶氬寘鐘讹拷?
         g_is_multi_packet_mode = false;
         g_expected_packet_seq = 1;
         g_multi_packet_offset = 0;
         g_multi_packet_protocol = 0;
         
       } else {
-        // ========== 中间包：继续等待下一�?==========
+        // ========== 涓棿鍖咃細缁х画绛夊緟涓嬩竴锟?==========
         printf("[UART] Waiting for next packet...\n");
-        return true; // 成功接收，但不触发协议处�?
+        return true; // 鎴愬姛鎺ユ敹锛屼絾涓嶈Е鍙戝崗璁锟?
       }
     }
     
-    // 输出解析结果
+    // 杈撳嚭瑙ｆ瀽缁撴灉
     printf("uart1 parse packet: protocol_id=0x%04X, data_length=%d, data=",
            uart_protocol_id, data_length);
     put_buf(uart_data, data_length);
@@ -2516,7 +2524,7 @@ bool uart1_parse_packet(uint8_t *rx_data, uint16_t data_len) {
   }
 }
 void uart1_recieve(void) {
-  r = uart_recv_blocking(1, (void *)uart_rx_ptr, 256, 5000); // 一直等
+  r = uart_recv_blocking(1, (void *)uart_rx_ptr, 256, 5000); // 涓€鐩寸瓑
   if (r > 0) {                                               // ok
     printf("r:%d\n", r);
     // r = uart_send_blocking(uart_id, (void *)uart_rx_ptr, r, 20);
