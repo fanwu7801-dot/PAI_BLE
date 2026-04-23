@@ -7936,6 +7936,7 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,uart_data,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,data_length,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,uart_protocol_id,l
+-r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,jiffies,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,mac_address_exists_gbk,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,no_peripheral_key_space_gbk,pl
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/fill_protocol.c.o,ble_key_peripheral,pl

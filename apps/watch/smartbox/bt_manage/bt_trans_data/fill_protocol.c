@@ -42,6 +42,17 @@
 #define VEH_SET_TRACE(tag, a, b)  do { } while (0)
 #endif
 
+/* 音频接收（MUSIC_RX）调试开关：默认关闭以避免传输期间产生大量打印 */
+#ifndef MUSIC_RX_DEBUG
+#define MUSIC_RX_DEBUG 0
+#endif
+
+#if MUSIC_RX_DEBUG
+#define MUSIC_RX_LOG(...) printf(__VA_ARGS__)
+#else
+#define MUSIC_RX_LOG(...)
+#endif
+
 /* 兼容 BLE 发送接口的宏；当前统一 multi-ble 接口 */
 #ifndef app_send_user_data_check
 #define app_send_user_data_check  le_multi_app_send_user_data_check
@@ -743,7 +754,7 @@ typedef struct {
 static fill_ble_notify_req_t g_ble_notify_req;
 static volatile uint8_t g_ble_notify_req_pending = 0;
 /* BLE 通知队列，已pending 时先入队 */
-#define BLE_NOTIFY_QUEUE_SIZE 3
+#define BLE_NOTIFY_QUEUE_SIZE 10
 static fill_ble_notify_req_t g_ble_notify_queue[BLE_NOTIFY_QUEUE_SIZE];
 static uint8_t g_ble_notify_queue_head = 0;
 static uint8_t g_ble_notify_queue_tail = 0;
@@ -2829,15 +2840,15 @@ static void send_data_to_ble(uint16_t instruct, uint16_t protocol_id,
 /* 记录最近一次发送0x00FB 钥匙列表的时间，1 秒内避免重复回复 */
 static u32 g_last_send_key_list_time = 0;
 void send_ble_key_list(uint16_t protocol_id) {
-  // // 0x00FB 请求过于频繁时直接丢弃，避免重复回包
-  // if (protocol_id == 0x00FB) {
-  //   u32 current_time = jiffies;
-  //   if (current_time - g_last_send_key_list_time < 100) { // 1 秒内不重复回包
-  //     log_info("[BLE] 00FB 协议发送过于频繁，已忽略\n");
-  //     return;
-  //   }
-  //   g_last_send_key_list_time = current_time;
-  // }
+  // 0x00FB 请求过于频繁时直接丢弃，避免重复回包
+  if (protocol_id == 0x00FB) {
+    u32 current_time = jiffies;
+    if (current_time - g_last_send_key_list_time < 100) { // 1 秒内不重复回包
+      log_info("[BLE] 00FB 协议发送过于频繁，已忽略\n");
+      return;
+    }
+    g_last_send_key_list_time = current_time;
+  }
 
   // uint8_t id_addr[6] = {0};save_MAC_address
   // ble_list_get_last_id_addr(id_addr);
@@ -4254,10 +4265,17 @@ static void tone_reply_ble_simple(uint16_t protocol_id, const uint8_t *payload, 
   if (app_recieve_callback) {
     app_recieve_callback(0, send_code, send_code_len);
   }
-  if (app_send_user_data_check(send_code_len)) {
-    (void)app_send_user_data(
-        ATT_CHARACTERISTIC_0000f7f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
-        send_code, send_code_len, ATT_OP_NOTIFY);
+  if (!app_send_user_data_check(send_code_len)) {
+    log_info("tone_reply_ble_simple: BLE tx queue full, protocol_id=0x%04x, payload_len=%u, send_len=%u",
+             protocol_id, payload_len, send_code_len);
+    return;
+  }
+  int ret = app_send_user_data(
+      ATT_CHARACTERISTIC_0000f7f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
+      send_code, send_code_len, ATT_OP_NOTIFY);
+  if (ret != APP_BLE_NO_ERROR) {
+    log_info("tone_reply_ble_simple: notify failed, protocol_id=0x%04x, ret=%d, send_len=%u",
+             protocol_id, ret, send_code_len);
   }
 }
 
@@ -4644,18 +4662,18 @@ static void music_file_send_instruct(uint16_t protocol_id) {
     }
 
     if (file_write_offset == 0) {
-      printf("[MUSIC_RX] ====== 开始接收音频数据======\n");
-      printf("[MUSIC_RX] first chunk_len=%u, nonzero=%u, head16:", chunk_len, nz);
+      MUSIC_RX_LOG("[MUSIC_RX] ====== 开始接收音频数据======\n");
+      MUSIC_RX_LOG("[MUSIC_RX] first chunk_len=%u, nonzero=%u, head16:", chunk_len, nz);
       for (uint16_t j = 0; j < 16 && j < chunk_len; j++) {
-        printf(" %02X", content_data[j]);
+        MUSIC_RX_LOG(" %02X", content_data[j]);
       }
-      printf("\n");
+      MUSIC_RX_LOG("\n");
     }
     
     // 每隔 50 包打印一次详细统计
     pkt_count++;
     if (pkt_count % 50 == 0 || file_write_offset == 0) {
-      printf("[MUSIC_RX] pkt#%u: offset=%u, chunk=%u, nz=%u (%.1f%%)\n",
+      MUSIC_RX_LOG("[MUSIC_RX] pkt#%u: offset=%u, chunk=%u, nz=%u (%.1f%%)\n",
              pkt_count, file_write_offset, chunk_len, nz,
              chunk_len ? (nz * 100.0f / chunk_len) : 0.0f);
     }
@@ -4671,7 +4689,7 @@ static void music_file_send_instruct(uint16_t protocol_id) {
   file_write_offset += chunk_len;
 
   if (!g_music_rx_head_probed && file_write_offset >= 16) {
-    printf("[CUSTOM_TONE] probe head early, offset=%u/%u\n", file_write_offset, total_file_size);
+    MUSIC_RX_LOG("[CUSTOM_TONE] probe head early, offset=%u/%u\n", file_write_offset, total_file_size);
     custom_tone_probe_file_format(current_file_path);
     g_music_rx_head_probed = 1;
   }
