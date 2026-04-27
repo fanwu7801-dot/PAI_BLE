@@ -125,8 +125,8 @@ bool user_custom_tone_play_if_exist(uint8_t tone_type, u8 preemption);
 // 自定义音效 meta 相关定义（共享给其他模块使用）
 //=====================================================================
 #define CUSTOM_TONE_META_MAGIC       0x544F4E45u /* 'TONE' */
-#define CUSTOM_TONE_MAX_TYPES        4
-#define CUSTOM_TONE_SLOT_MAX_SIZE    0x180000u /* 1.5MB */
+#define CUSTOM_TONE_MAX_TYPES        3
+#define CUSTOM_TONE_SLOT_MAX_SIZE    0x100000u /* 1MB */
 
 typedef struct {
   uint32_t magic;

@@ -73,7 +73,8 @@ u8 test_aes_key[16] = {
 0x17, 0xED, 0x2D, 0xD3, 0x1F, 0x1E, 0xF5, 0x52,
 0x51, 0xBC, 0xB4, 0x86, 0x2D, 0x1C, 0xE9, 0x66    
 }; 
-    
+
+
 static int aes_key_is_valid(const u8 key[16])
 {
   u8 all_zero = 1;
@@ -4175,8 +4176,7 @@ typedef struct indivi_tone {
 
 /* 自定义音效约定：存放在内FLASH USER reserved 
  * - 音频数据：按 tone_type 写入对应 reserved 文件映射节点（不是目普通文件）
- *   - UWTG0 对应 isd_config.ini [RESERVED_CONFIG]，VFS 路径mnt/sdfile/app/uwtg0
- *   - UWTG1~UWTG3 对应 isd_config.ini [RESERVED_EXPAND_CONFIG]，VFS 路径mnt/sdfile/EXT_RESERVED/UWTG{1..3}
+ *   - UWTG0~UWTG2 对应 isd_config.ini [RESERVED_CONFIG]，VFS 路径mnt/sdfile/app/uwtg{0..2}
  * - 元信息写syscfg 到 CFG_CUSTOM_TONE_META_0..3，供 0x0075 查询
  * - 共享定义user_info_file.h，这里直接恢复
  */

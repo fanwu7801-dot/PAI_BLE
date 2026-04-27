@@ -15,22 +15,23 @@
 ifeq ($(OS), Windows_NT)
 # Windows 下工具链位置
 TOOL_DIR := C:/JL/pi32/bin
+TOOLS_UTIL_DIR := $(CURDIR)/tools/utils
 CC    := clang.exe
 CXX   := clang.exe
 LD    := pi32v2-lto-wrapper.exe
 AR    := llvm-ar.exe
-MKDIR := mkdir_win -p
+MKDIR := tools/utils/mkdir_win.exe -p
 RM    := rm -rf
 
 SYS_LIB_DIR := C:/JL/pi32/pi32v2-lib/r3-large
 SYS_INC_DIR := C:/JL/pi32/pi32v2-include
 EXT_CFLAGS  := # Windows 下不需要 -D__SHELL__
-export PATH:=$(TOOL_DIR);$(PATH)
+export PATH:=$(TOOLS_UTIL_DIR);$(TOOL_DIR);$(PATH)
 
 ## 后处理脚本
 FIXBAT          := tools/utils/fixbat.exe # 用于处理 utf8->gbk 编码问题
 POST_SCRIPT     := cpu/br28/tools/download.bat
-RUN_POST_SCRIPT := cpu\br28\tools\download.bat
+RUN_POST_SCRIPT := cmd /c call cpu/br28/tools/download.bat
 else
 # Linux 下工具链位置
 TOOL_DIR := /opt/jieli/pi32v2/bin
@@ -1379,7 +1380,7 @@ LINK_AT ?= 1
 
 all: pre_build $(OUT_ELF)
 	$(info +POST-BUILD)
-	$(QUITE) $(RUN_POST_SCRIPT) sdk
+	$(QUITE) $(RUN_POST_SCRIPT)
 
 pre_build:
 	$(info +PRE-BUILD)

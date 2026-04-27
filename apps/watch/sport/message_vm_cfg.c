@@ -656,6 +656,8 @@ int phonebook_get_name_by_number(u8 *in_number, u8 *name)
 #else
 
     struct phonebook temp_phonebook_buf;
+    u8 temp_number[PHONEBOOK_NUMBER_LEN];
+    u8 number[PHONEBOOK_NUMBER_LEN];
     struct vfs_attr attr = {0};
     void *temp_hdl;
     u16 count = 0;
@@ -677,12 +679,14 @@ int phonebook_get_name_by_number(u8 *in_number, u8 *name)
         return 0;
     }
 
+    phone_number_neaten(in_number, number);
     int fsize = attr.fsize;
     while (1) {
         int len;
         fseek(temp_hdl, count * PHONE_BOOK_LEN, SEEK_SET);
         len = fread(temp_hdl, &temp_phonebook_buf, PHONE_BOOK_LEN);
-        if (!strcmp(number, temp_phonebook_buf.number)) {
+        phone_number_neaten(temp_phonebook_buf.number, temp_number);
+        if (!strcmp(number, temp_number)) {
             memcpy(name, temp_phonebook_buf.name, PHONEBOOK_NUMBER_LEN);
             vaild_flag = 1;
             break;

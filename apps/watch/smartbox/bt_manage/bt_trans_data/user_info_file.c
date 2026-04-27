@@ -145,8 +145,8 @@ static int custom_tone_copy_exact_bytes(const char *src_path, const char *dst_pa
 
 // 定义已移至 user_info_file.h，此处保留注释以便理解
 // #define CUSTOM_TONE_META_MAGIC       0x544F4E45u
-// #define CUSTOM_TONE_MAX_TYPES        4
-// #define CUSTOM_TONE_SLOT_MAX_SIZE    0x180000u
+// #define CUSTOM_TONE_MAX_TYPES        3
+// #define CUSTOM_TONE_SLOT_MAX_SIZE    0x100000u
 // typedef struct custom_tone_meta_t ... (see user_info_file.h)
 
 const char *custom_tone_slot_path(uint8_t tone_type)
@@ -154,9 +154,8 @@ const char *custom_tone_slot_path(uint8_t tone_type)
   // 路径不带后缀，用于读写 reserved 区域
   static const char *paths[CUSTOM_TONE_MAX_TYPES] = {
       "mnt/sdfile/app/uwtg0",
-      "mnt/sdfile/EXT_RESERVED/UWTG1",
-      "mnt/sdfile/EXT_RESERVED/UWTG2",
-      "mnt/sdfile/EXT_RESERVED/UWTG3",
+      "mnt/sdfile/app/uwtg1",
+      "mnt/sdfile/app/uwtg2",
   };
   if (tone_type >= CUSTOM_TONE_MAX_TYPES) {
     return paths[0];

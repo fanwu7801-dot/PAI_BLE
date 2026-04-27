@@ -136,10 +136,8 @@ static int heart_rate_file_write(void)
         sprintf(path, "%s%02d%02d%02d", HR_PATH, (ntime.year) % 100, ntime.month, ntime.day);
         printf("%s", path);
         hrfiledata.fp = fopen(path, "w+");
-        int file_len = flen(hrfiledata.fp);
         if (hrfiledata.fp == NULL) {
             printf("open_file_error!!!");
-            free(fp);
             return 0;
         }
         fwrite(hrfiledata.fp, fbuf, 11);
@@ -160,7 +158,7 @@ static int heart_rate_file_write(void)
         data_head[1] = ntime.min;
         data_head[2] = 0xff; //len_h
         data_head[3] = 0xff; //len_l
-        fseek(hrfiledata.fp, file_len, 0);
+        fseek(hrfiledata.fp, hrfiledata.w_file_offset, 0);
         fwrite(hrfiledata.fp, data_head, 4);
         hrfiledata.w_file_offset += 4;
     }
@@ -247,7 +245,7 @@ static int heart_rate_file_write_stop(void) //跨天更换文件
     //写入CRC
     u16 temp_data_len = hrfiledata.w_file_offset - 11;
     u8 *temp_data = zalloc(temp_data_len + 1);
-    fseek(hrfiledata.fp, 11);
+    fseek(hrfiledata.fp, 11, 0);
     fread(hrfiledata.fp, temp_data, temp_data_len);
     u16 crc_value = CRC16(temp_data, temp_data_len);
     u8 crc_buf[2];
@@ -379,17 +377,11 @@ static int heart_rate_file_read(struct sys_time *p)
     return 0;
 #else
     struct sys_time ptime;
-    int mode = 0;
     if (p == NULL) {
-        mode = 1;
-        ptime = zalloc(sizeof(struct sys_time));
-        watch_file_get_sys_time(ptime);//传入空指针默认当天
-        if (ptime == NULL) {
-            printf("get_sys_time_error!!!");
-            return 0;
-        }
+        watch_file_get_sys_time(&ptime);//传入空指针默认当天
+    } else {
+        memcpy(&ptime, p, sizeof(struct sys_time));
     }
-    memcpy(&ptime, p, sizeof(struct sys_time));
     char path[45];
     sprintf(path, "%s%02d%02d%02d", HR_PATH, (ptime.year) % 100, ptime.month, ptime.day);
     FILE *fp = fopen(path, "w+");
@@ -554,7 +546,6 @@ void clr_heart_rate(void) //清除缓存数据
         heart_rate_data.Tcount = 0;
     }
 }
-
 
 
 

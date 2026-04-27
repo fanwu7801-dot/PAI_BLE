@@ -136,13 +136,11 @@ static int blood_oxygen_file_write(void)
         fbuf[10] = 0xff; //保留位2
         /*printf("filetype=%d,year=%d,month=%d,day=%d,interval=%d",fbuf[0],ntime.year,ntime.month,ntime.day,BO_TIME_INTERVAL);*/
         char path[45];
-        sprintf(path, "%s%02d%02d%02d", bo_PATH, (ntime.year) % 100, ntime.month, ntime.day);
+        sprintf(path, "%s%02d%02d%02d", BO_PATH, (ntime.year) % 100, ntime.month, ntime.day);
         printf("%s", path);
         bofiledata.fp = fopen(path, "w+");
-        int file_len = flen(bofiledata.fp);
         if (bofiledata.fp == NULL) {
             printf("open_file_error!!!");
-            free(fp);
             return 0;
         }
         fwrite(bofiledata.fp, fbuf, 11);
@@ -162,7 +160,7 @@ static int blood_oxygen_file_write(void)
         data_head[1] = ntime.min;
         data_head[2] = 0xff; //len_h
         data_head[3] = 0xff; //len_l
-        fseek(bofiledata.fp, file_len, 0);
+        fseek(bofiledata.fp, bofiledata.w_file_offset, 0);
         fwrite(bofiledata.fp, data_head, 4);
         bofiledata.w_file_offset += 4;
     }
@@ -247,7 +245,7 @@ static int blood_oxygen_file_write_stop(void) //跨天更换文件
     //写入CRC
     u16 temp_data_len = bofiledata.w_file_offset - 11;
     u8 *temp_data = zalloc(temp_data_len + 1);
-    fseek(bofiledata.fp, 11);
+    fseek(bofiledata.fp, 11, 0);
     fread(bofiledata.fp, temp_data, temp_data_len);
     u16 crc_value = CRC16(temp_data, temp_data_len);
     u8 crc_buf[2];
@@ -379,19 +377,13 @@ static int blood_oxygen_file_read(struct sys_time *p)
     return 0;
 #else
     struct sys_time ptime;
-    int mode = 0;
     if (p == NULL) {
-        mode = 1;
-        ptime = zalloc(sizeof(struct sys_time));
-        watch_file_get_sys_time(ptime);//传入空指针默认当天
-        if (ptime == NULL) {
-            printf("get_sys_time_error!!!");
-            return 0;
-        }
+        watch_file_get_sys_time(&ptime);//传入空指针默认当天
+    } else {
+        memcpy(&ptime, p, sizeof(struct sys_time));
     }
-    memcpy(&ptime, p, sizeof(struct sys_time));
     char path[45];
-    printf(path, "%s%02d%02d%02d", BO_PATH, (ptime.year) % 100, ptime.month, ptime.day);
+    sprintf(path, "%s%02d%02d%02d", BO_PATH, (ptime.year) % 100, ptime.month, ptime.day);
     FILE *fp = fopen(path, "w+");
     if (fp == NULL) {
         printf("open_file_error!!!");
@@ -551,4 +543,3 @@ void clr_blood_oxygen(void) //清除数据
         blood_oxygen_data.Tcount = 0;
     }
 }
-

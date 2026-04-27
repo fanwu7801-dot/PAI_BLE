@@ -54,6 +54,6 @@ struct norflash_sfc_dev_platform_data {
 extern const struct device_operations norflash_sfc_dev_ops;
 extern const struct device_operations norflash_sfc_fs_dev_ops;
 extern const struct device_operations inside_norflash_fs_dev_ops;
+extern const struct device_operations inside_norflash_fat_fs_dev_ops;
 
 #endif
-

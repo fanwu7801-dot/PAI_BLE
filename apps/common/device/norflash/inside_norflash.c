@@ -301,3 +301,230 @@ const struct device_operations inside_norflash_fs_dev_ops = {
     .ioctl  = norflash_sfc_fs_dev_ioctl,
     .close  = norflash_sfc_fs_dev_close,
 };
+
+#if TCFG_NOR_TONE_FAT
+
+#define FLASH_CACHE_ENABLE              1
+#define FLASH_CACHE_SYNC_T_INTERVAL     60
+
+#if FLASH_CACHE_ENABLE
+static u32 flash_cache_addr = 4096;
+static u8 flash_cache_buf[4096];
+static u8 flash_cache_is_dirty;
+static u16 flash_cache_timer;
+#endif
+
+static int norflash_fat_fs_dev_init(const struct dev_node *node, void *arg)
+{
+    struct norflash_sfc_dev_platform_data *pdata = arg;
+
+    return _norflash_init(node->name, pdata);
+}
+
+static int norflash_fat_fs_dev_open(const char *name, struct device **device, void *arg)
+{
+    struct norflash_partition *part = norflash_find_part(name);
+
+    if (!part) {
+        log_error("no norflash partition is found\n");
+        return -ENODEV;
+    }
+    *device = &part->device;
+    (*device)->private_data = part;
+    if (atomic_read(&part->device.ref)) {
+        return 0;
+    }
+
+#if FLASH_CACHE_ENABLE
+    norflash_sfc_fs_dev_read(*device, flash_cache_buf, sizeof(flash_cache_buf), 0);
+    flash_cache_addr = 0;
+    flash_cache_is_dirty = 0;
+#endif
+
+    return 0;
+}
+
+static int norflash_fat_fs_dev_close(struct device *device)
+{
+#if FLASH_CACHE_ENABLE
+    norflash_mutex_enter();
+    if (flash_cache_is_dirty) {
+        flash_cache_is_dirty = 0;
+        norflash_sfc_fs_dev_ioctl(device, IOCTL_ERASE_SECTOR, flash_cache_addr);
+        norflash_sfc_fs_dev_write(device, flash_cache_buf, sizeof(flash_cache_buf), flash_cache_addr);
+    }
+    norflash_mutex_exit();
+#endif
+
+    return 0;
+}
+
+static int norflash_fat_fs_dev_read(struct device *device, void *buf, u32 len, u32 addr)
+{
+    int org_len = len;
+    u8 *r_buf = (u8 *)buf;
+
+#if FLASH_CACHE_ENABLE
+    addr *= 512;
+    len *= 512;
+
+    norflash_mutex_enter();
+    u32 r_len = sizeof(flash_cache_buf) - (addr % sizeof(flash_cache_buf));
+    if ((addr >= flash_cache_addr) && (addr < (flash_cache_addr + sizeof(flash_cache_buf)))) {
+        if (len <= r_len) {
+            memcpy(r_buf, flash_cache_buf + (addr - flash_cache_addr), len);
+            norflash_mutex_exit();
+            return org_len;
+        }
+        memcpy(r_buf, flash_cache_buf + (addr - flash_cache_addr), r_len);
+        addr += r_len;
+        r_buf += r_len;
+        len -= r_len;
+    }
+    norflash_mutex_exit();
+#else
+    addr *= 512;
+    len *= 512;
+#endif
+
+    norflash_sfc_fs_dev_read(device, r_buf, len, addr);
+
+    return org_len;
+}
+
+#if FLASH_CACHE_ENABLE
+static void _norflash_cache_sync_timer(struct device *device)
+{
+    int reg = 0;
+
+    norflash_mutex_enter();
+    if (flash_cache_is_dirty) {
+        flash_cache_is_dirty = 0;
+        reg = norflash_sfc_fs_dev_ioctl(device, IOCTL_ERASE_SECTOR, flash_cache_addr);
+        if (reg == -EFAULT) {
+            goto __exit;
+        }
+        norflash_sfc_fs_dev_write(device, flash_cache_buf, sizeof(flash_cache_buf), flash_cache_addr);
+    }
+    if (flash_cache_timer) {
+        sys_timeout_del(flash_cache_timer);
+        flash_cache_timer = 0;
+    }
+__exit:
+    norflash_mutex_exit();
+}
+#endif
+
+static int norflash_fat_fs_dev_write(struct device *device, void *buf, u32 len, u32 addr)
+{
+    int org_len = len;
+    int reg = 0;
+
+    norflash_mutex_enter();
+#if FLASH_CACHE_ENABLE
+    u8 *w_buf = (u8 *)buf;
+    u32 w_len = len * 512;
+    addr *= 512;
+
+    while (w_len) {
+        u32 align_addr = addr / sizeof(flash_cache_buf) * sizeof(flash_cache_buf);
+        u32 cnt = sizeof(flash_cache_buf) - (addr - align_addr);
+        cnt = w_len > cnt ? cnt : w_len;
+
+        if (align_addr != flash_cache_addr) {
+            if (flash_cache_is_dirty) {
+                flash_cache_is_dirty = 0;
+                reg = norflash_sfc_fs_dev_ioctl(device, IOCTL_ERASE_SECTOR, flash_cache_addr);
+                if (reg == -EFAULT) {
+                    goto __exit;
+                }
+                reg = norflash_sfc_fs_dev_write(device, flash_cache_buf, sizeof(flash_cache_buf), flash_cache_addr);
+                if (reg != sizeof(flash_cache_buf)) {
+                    goto __exit;
+                }
+            }
+            norflash_sfc_fs_dev_read(device, flash_cache_buf, sizeof(flash_cache_buf), align_addr);
+            flash_cache_addr = align_addr;
+        }
+
+        memcpy(flash_cache_buf + (addr - align_addr), w_buf, cnt);
+        if ((addr + cnt) % sizeof(flash_cache_buf)) {
+            flash_cache_is_dirty = 1;
+            if (flash_cache_timer) {
+                sys_timer_re_run(flash_cache_timer);
+            } else {
+                flash_cache_timer = sys_timeout_add(0, _norflash_cache_sync_timer, FLASH_CACHE_SYNC_T_INTERVAL);
+            }
+        } else {
+            flash_cache_is_dirty = 0;
+            reg = norflash_sfc_fs_dev_ioctl(device, IOCTL_ERASE_SECTOR, align_addr);
+            if (reg == -EFAULT) {
+                goto __exit;
+            }
+            reg = norflash_sfc_fs_dev_write(device, flash_cache_buf, sizeof(flash_cache_buf), align_addr);
+            if (reg != sizeof(flash_cache_buf)) {
+                goto __exit;
+            }
+        }
+
+        addr += cnt;
+        w_buf += cnt;
+        w_len -= cnt;
+    }
+#else
+    reg = norflash_sfc_fs_dev_write(device, buf, len * 512, addr * 512);
+#endif
+
+__exit:
+    norflash_mutex_exit();
+    return reg < 0 ? reg : org_len;
+}
+
+static bool norflash_fat_fs_dev_online(const struct dev_node *node)
+{
+    return 1;
+}
+
+static int norflash_fat_fs_dev_ioctl(struct device *device, u32 cmd, u32 arg)
+{
+    struct norflash_partition *part = device->private_data;
+
+    switch (cmd) {
+    case IOCTL_ERASE_SECTOR:
+        return norflash_sfc_fs_dev_ioctl(device, IOCTL_ERASE_SECTOR, arg * 512);
+    case IOCTL_FLUSH:
+        norflash_mutex_enter();
+        if (flash_cache_is_dirty) {
+            flash_cache_is_dirty = 0;
+            norflash_sfc_fs_dev_ioctl(device, IOCTL_ERASE_SECTOR, flash_cache_addr);
+            norflash_sfc_fs_dev_write(device, flash_cache_buf, sizeof(flash_cache_buf), flash_cache_addr);
+        }
+        norflash_mutex_exit();
+        return 0;
+    case IOCTL_GET_CAPACITY:
+        *(u32 *)arg = part->size / 512;
+        break;
+    case IOCTL_GET_BLOCK_SIZE:
+        *(u32 *)arg = 512;
+        break;
+    case IOCTL_CMD_RESUME:
+    case IOCTL_CMD_SUSPEND:
+        break;
+    default:
+        log_error("unsupport ioctl cmd %d\n", cmd);
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+const struct device_operations inside_norflash_fat_fs_dev_ops = {
+    .init   = norflash_fat_fs_dev_init,
+    .online = norflash_fat_fs_dev_online,
+    .open   = norflash_fat_fs_dev_open,
+    .read   = norflash_fat_fs_dev_read,
+    .write  = norflash_fat_fs_dev_write,
+    .ioctl  = norflash_fat_fs_dev_ioctl,
+    .close  = norflash_fat_fs_dev_close,
+};
+#endif  /* TCFG_NOR_TONE_FAT */

@@ -720,6 +720,16 @@ NORFLASH_SFC_DEV_PLATFORM_DATA_BEGIN(norflash_norfs_inside_vm_dev_data)
 NORFLASH_SFC_DEV_PLATFORM_DATA_END()
 #endif//TCFG_NOR_VM
 
+#if TCFG_NOR_TONE_FAT
+#define UI_TONE_FAT_IN_FLASH_NAME "TONEFAT"//isd_config_rule 文件配置
+#define TONE_FAT_ROOT_PATH       	SDFILE_MOUNT_PATH"/EXT_RESERVED/"UI_TONE_FAT_IN_FLASH_NAME  //分区
+NORFLASH_SFC_DEV_PLATFORM_DATA_BEGIN(norflash_norfs_inside_tone_fat_dev_data)
+    .path           = TONE_FAT_ROOT_PATH,
+    .start_addr     = TCFG_TONE_FAT_INSERT_FLASH_BASE,
+    .size           = TCFG_TONE_FAT_INSERT_FLASH_SIZE,
+NORFLASH_SFC_DEV_PLATFORM_DATA_END()
+#endif//TCFG_NOR_TONE_FAT
+
 #endif//TCFG_VIRFAT_INSERT_FLASH_ENABLE
 
 
@@ -967,6 +977,10 @@ REGISTER_DEVICES(device_table) = {
 #if TCFG_NOR_VM
     //使用内置flash
     {"ui_vm",   &inside_norflash_fs_dev_ops , (void *)&norflash_norfs_inside_vm_dev_data},
+#endif
+#if TCFG_NOR_TONE_FAT
+    //使用内置flash FAT提示音分区
+    {"tone_fat",   &inside_norflash_fat_fs_dev_ops , (void *)&norflash_norfs_inside_tone_fat_dev_data},
 #endif
 #endif//TCFG_NORFLASH_SFC_DEV_ENABLE
 

@@ -117,5 +117,4 @@ objs/apps/watch/sport/message_vm_cfg.c.o: \
   include_lib/driver/cpu/br28\asm/rtc.h \
   include_lib/driver\device/rtc_calculate.h \
   include_lib/driver\device/sdio_host_init.h \
-  apps/watch/include\message_vm_cfg.h \
-  include_lib/system/ui_new\ui_vm/ui_vm.h
+  apps/watch/include\message_vm_cfg.h

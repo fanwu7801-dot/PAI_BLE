@@ -40,6 +40,7 @@
  * download.bat配置为：fat_comm.exe ...... -mark-bad-after 0xfe0000 ......
  */
 #define CONFIG_EXTERN_USER_VM_FLASH_SIZE        (128*1024)
+#define CONFIG_EXTERN_USER_TONE_FAT_FLASH_SIZE  (2*1024*1024)
 
 #define CONFIG_SPI_DATA_WIDTH                   4                //data_width[0 1 2 3 4] 3的时候uboot自动识别2或者4线
 #define CONFIG_SPI_CLK_DIV                      3                //clk [0-255]

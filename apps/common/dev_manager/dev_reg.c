@@ -169,6 +169,15 @@ const struct __dev_reg dev_reg[] = {
         /*fs_type*/			"fat",
     },
 #endif
+#if TCFG_NOR_TONE_FAT
+    {
+        /*logo*/            "tone_fat",
+        /*name*/            "tone_fat",
+        /*storage_path*/    "storage/tone_fat",
+        /*root_path*/       "storage/tone_fat/C/",
+        /*fs_type*/         "fat",
+    },
+#endif
     //<新加设备参数请在reg end前添加!!
     //<reg end
     {
@@ -179,5 +188,3 @@ const struct __dev_reg dev_reg[] = {
         /*fs_type*/			NULL,
     },
 };
-
-

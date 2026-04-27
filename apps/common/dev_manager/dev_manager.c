@@ -1050,6 +1050,11 @@ static void dev_manager_task(void *p)
 	dev_manager_add("rec_nor");
 #endif
 
+#if TCFG_NOR_TONE_FAT
+	dev_manager_add("tone_fat");
+	dev_manager_set_valid_by_logo("tone_fat", 0);///将设备设置为无效设备
+#endif
+
 #if TCFG_NOR_FAT
     dev_manager_add("fat_nor");
     dev_manager_set_valid_by_logo("fat_nor", 0);///将设备设置为无效设备
@@ -1140,4 +1145,3 @@ void dev_manager_init(void)
 	devices_init();
 #endif
 }
-

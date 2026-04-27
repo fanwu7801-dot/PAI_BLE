@@ -216,5 +216,4 @@ objs/apps/watch/sport/sport_api.c.o: apps/watch/sport/sport_api.c \
   cpu/br28\audio_effect/audio_ch_swap_demo.h \
   apps/watch/include\sport/sport_api.h \
   apps/watch/include\sport_data/sport.h \
-  apps/watch/include\sport_data/watch_common.h \
-  include_lib/system/ui_new\ui_vm/ui_vm.h
+  apps/watch/include\sport_data/watch_common.h

@@ -1872,13 +1872,13 @@ tone_play_err:
           printf("[UART] Received cmd 0x00A3: Play custom tone from slot\n");
           
           // 协�?数据格式�?
-          // [tone_type 1字节] (0~3，�?应自定义音效槽位 uwtg0~UWTG3)
+          // [tone_type 1字节] (0~2，对应自定义音效槽位 uwtg0~uwtg2)
           // 如果没有数据，默认播放槽�?
           
           uint8_t tone_type = 0;
           if (uart_data != NULL && data_length > 0) {
             tone_type = uart_data[0];
-            if (tone_type > 3) {
+            if (tone_type >= CUSTOM_TONE_MAX_TYPES) {
               tone_type = 0; // 超出范围，使用槽�?
             }
           }

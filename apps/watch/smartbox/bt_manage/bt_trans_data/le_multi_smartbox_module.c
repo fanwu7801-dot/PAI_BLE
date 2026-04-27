@@ -66,7 +66,7 @@ extern void ble_connection_lowpower_ctrl(u8 connected);
 
 
 #ifndef BLE_AES_KEY_FLASH_UNIT_TEST
-#define BLE_AES_KEY_FLASH_UNIT_TEST  0
+#define BLE_AES_KEY_FLASH_UNIT_TEST  1
 #endif
 
 #if TCFG_CAT1_MODULE_UPDATE_ENABLE
@@ -105,9 +105,12 @@ extern void ble_connection_lowpower_ctrl(u8 connected);
 
 
 static void ble_aes_key_flash_unit_test_write(void)
-{   //aes_key for test number : CA6E67ED5CF4668BB7057361E6C65A4E
+{   //aes_key for test number : BA92D1D5FC07B90F3567163BEE486810 
+    /* AES key写入flash单元测试，验证syscfg读写功能是否正常，确保AES key能正确存储和读取
+    */
     static const u8 unit_test_aes_key[16] = {
-    0xCA, 0x6E, 0x67, 0xED, 0x5C, 0xF4, 0x66, 0x8B, 0xB7, 0x05, 0x73, 0x61, 0xE6, 0xC6, 0x5A, 0x4E
+        0x2B, 0x51, 0x58, 0x6C, 0xF0, 0x33, 0x5E, 0xFE,
+        0x16, 0xE8, 0x96, 0x85, 0x34, 0x5E, 0x8F, 0x49
     };
     u8 readback[16] = {0};
     int w = syscfg_write(CFG_DEVICE_AES_KEY, (void *)unit_test_aes_key, sizeof(unit_test_aes_key));
@@ -120,6 +123,22 @@ static void ble_aes_key_flash_unit_test_write(void)
     if (r == sizeof(readback)) {
         printf("[AES_UT] readback key:\n");
         put_buf(readback, sizeof(readback));
+    }
+
+        /* 在 ble_aes_key_flash_unit_test_write 中加入 */
+    const char sn_str[] = "900102031800002"; /* 你要写入的 SN */
+    uint8_t sn_hex8[8] = {0};
+    if (sn_payload_to_hex8((const uint8_t *)sn_str, strlen(sn_str), sn_hex8) == 0) {
+        int w_sn = syscfg_write(CFG_DEVICE_SN, sn_hex8, sizeof(sn_hex8));
+        printf("[AES_UT] write CFG_DEVICE_SN ret=%d\n", w_sn);
+        uint8_t rb[8] = {0};
+        int r = syscfg_read(CFG_DEVICE_SN, rb, sizeof(rb));
+        printf("syscfg_write(CFG_DEVICE_SN) ret=%d, readback ret=%d\n", w_sn, r);
+        if (r == sizeof(rb)) {
+            put_buf(rb, sizeof(rb));
+        }
+    } else {
+        printf("[AES_UT] sn_payload_to_hex8 failed\n");
     }
 }
 
@@ -2776,8 +2795,8 @@ static void f6f1_delay_send_handler(void)
         0x01, 0x00, 0x01,
         'S', 'W', '_', 'V', '1', '.', '0', 0x00,
         'H', 'W', '_', 'V', '1', '.', '2', 0x00,
-         0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x7D,// SN 位置从第19个字节开始，�?字节--->new sn
-    //    0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC2, // SN 位置从第19个字节开始，�?字节---->old sn
+        //  0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x7D,// SN 位置从第19个字节开始，�?字节--->new sn
+       0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC2, // SN 位置从第19个字节开始，�?字节---->old sn
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         'F', 'O', 'T', 'A', '_', 'V', '1', '.', '0', '_', 'B', 'U', 'I', 'L', 'D', '0', '0', '1', 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -2949,8 +2968,8 @@ static u8 custom_rsp_data[] = {
     0x00,                                           // 预留字段: 0x00 (1Byte)
     0x00, 0xA2, 0xDE, 0xB6, 0x8E, 0xF8,             // MAC地址: 00A2 DEB6 8EF8 (6Byte)
     0x04,                                           // 设备类型: 03 代表中控VBU (1Byte)
-    // 0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC2, // 设备SNtoHEX: 0003 32A3 55DD F6C2 (8Byte) sn�?
-    0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x7D,// SN 位置从第19个字节开始，�?字节--->new sn
+    0x00, 0x03, 0x32, 0xA3, 0x55, 0xDD, 0xF6, 0xC2, // 设备SNtoHEX: 0003 32A3 55DD F6C2 (8Byte) sn�?
+    // 0x00, 0x02, 0x7C, 0xBD, 0x35, 0xDF, 0x21,0x7D,// SN 位置从第19个字节开始，�?字节--->new sn
     0x01, 0x00, 0x00, 0x00, 0x00, 0x00 // 设备状�? 0100 0000 0000 (6Byte)
 };
 /*************************************************************
@@ -3051,7 +3070,7 @@ static int multi_smartbox_make_set_adv_data(u8 cid)
         0xF8F0, 0xF8F1, 0xF8F2,
     };
     static const u8 adv_name_template[] = {
-        'P', 'A', 'I', 'B', 'T', '0', '0', '2', '9'
+        'P', 'A', 'I', 'B', 'T', '0', '0', '0', '2'
     };
     const u8 custom_uuid16_cnt = sizeof(custom_uuid16_list) / sizeof(custom_uuid16_list[0]);
     const u8 name_len = sizeof(adv_name_template);

@@ -366,6 +366,7 @@ int sport_buf_write_updata(u8 *buf, int len)
 
 void watch_sport_file_collating(void *priv)
 {
+#if TCFG_NOR_VM
     printf("%s %d %d ", __func__, flash_common_get_total(get_flash_vm_hd(F_TYPE_SPORTRECORD)), get_flash_vm_number_max(F_TYPE_SPORTRECORD));
     if (flash_common_get_total(get_flash_vm_hd(F_TYPE_SPORTRECORD)) == get_flash_vm_number_max(F_TYPE_SPORTRECORD)) {
         printf("total==%d", flash_common_get_total(get_flash_vm_hd(F_TYPE_SPORTRECORD)));
@@ -373,6 +374,7 @@ void watch_sport_file_collating(void *priv)
         flash_common_delete_by_index(get_flash_vm_hd(F_TYPE_SPORTRECORD), 0);
         flash_common_file_defrag(get_flash_vm_hd(F_TYPE_SPORTRECORD),  SPORT_FILE_SIZE);
     }
+#endif
 }
 
 static void watch_sport_update_by_timer(void *priv)
@@ -1244,6 +1246,10 @@ u16 get_sport_recode_size(void)
     if (last_file == 0) {
         return (u16)0;
     } else {
+#if TCFG_NOR_VM
         return (u16)flash_common_get_file_size_by_id(get_flash_vm_hd(F_TYPE_SPORTRECORD), (int)last_file);
+#else
+        return (u16)0;
+#endif
     }
 }

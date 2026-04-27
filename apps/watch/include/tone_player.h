@@ -5,7 +5,11 @@
 #include "audio_config.h"
 
 
+#if TCFG_NOR_TONE_FAT
+#define TONE_RES_ROOT_PATH		 "storage/tone_fat/C/"   	//内置flash提示音FAT根路径
+#else
 #define TONE_RES_ROOT_PATH		 SDFILE_RES_ROOT_PATH   	//内置flash提示音根路径
+#endif
 
 
 #define TONE_STOP       0
