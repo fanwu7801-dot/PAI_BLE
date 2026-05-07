@@ -201,7 +201,7 @@ static int is_all_ff(const uint8_t *data, uint16_t len)
 #ifndef APP_MSG_USER_CUSTOM_TONEPLAY
 #define APP_MSG_USER_CUSTOM_TONEPLAY 6
 
-#define UPDATA_SN_AES_KEY    1 // enable SN/AES key update from MCU
+#define UPDATA_SN_AES_KEY    0 // enable SN/AES key update from MCU
 
 // UART->APP 音效�?��消息重试（避免消�?��列满时丢失）
 #define TONEPLAY_RETRY_MAX         5

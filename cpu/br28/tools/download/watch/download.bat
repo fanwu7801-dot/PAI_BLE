@@ -54,7 +54,7 @@ set /p "themd5=" < "md5.bin"
 
 ::echo %1
 
-set CHIPKEY=default.key
+set CHIPKEY=193-AC690X-B718.key
 
 :: 8MBytes
 ::..\..\packres.exe -keep-suffix-case F_ASCII.PIX ascii.res -n res -o font
@@ -71,7 +71,7 @@ move watch? res.ori\
 move font res.ori\font
 
 ..\..\packres.exe -n res -o res.bin new_res.bin 0 -normal
-::ÍâÖÃflash·ÅÉı¼¶ÎÄ¼ş£¬Ê¾ÀıÎª·ÅÔÚ0xb00000µØÖ·£¬ĞèÒªÏÈÉú³Énor_up.ufw
+::ï¿½ï¿½ï¿½ï¿½flashï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½0xb00000ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½nor_up.ufw
 ::..\..\packres.exe -n res -o res.bin new_res.bin 0 nor_up.ufw 0xb00000 -normal
 
 
@@ -88,7 +88,7 @@ move font res.ori\font
 ::-reboot 100
 
 
-@rem É¾³ıÁÙÊ±ÎÄ¼ş-format all
+@rem É¾ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¼ï¿½-format all
 if exist *.mp3 del *.mp3 
 if exist *.PIX del *.PIX
 if exist *.TAB del *.TAB
@@ -100,11 +100,11 @@ if exist *.view del *.view
 if exist *.json del *.json
 
 
-::Èç¹ûÊ¹ÓÃÍâÖÃflash·ÅÉı¼¶ÎÄ¼ş´¦Àí·½Ê½£¬ÏÂÃæ²Ù×÷Éú³ÉµÄupdate.ufwÖĞ²»Ö»°üº¬ÊÖ±í×ÊÔ´ÎÄ¼ş£¬»¹ÓĞnor_up.ufwÎÄ¼şÄÚÈİ¡£
+::ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½flashï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éµï¿½update.ufwï¿½Ğ²ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½Ô´ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½nor_up.ufwï¿½Ä¼ï¿½ï¿½ï¿½ï¿½İ¡ï¿½
 
-@rem Éú³É¹Ì¼şÉı¼¶ÎÄ¼ş
+@rem ï¿½ï¿½ï¿½É¹Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
 ..\..\fw_add.exe -noenc -fw jl_isd.fw  -add ota.bin -type 100 -out jl_isd.fw
-@rem Ìí¼ÓÅäÖÃ½Å±¾µÄ°æ±¾ĞÅÏ¢µ½ FW ÎÄ¼şÖĞ
+@rem ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã½Å±ï¿½ï¿½Ä°æ±¾ï¿½ï¿½Ï¢ï¿½ï¿½ FW ï¿½Ä¼ï¿½ï¿½ï¿½
 ..\..\fw_add.exe -noenc -fw jl_isd.fw -add script.ver -out jl_isd.fw
 
 
@@ -115,16 +115,16 @@ del jl_isd.ufw
 ::..\..\zip.exe -r upgrade.zip res.ori update.ufw
 ..\..\zip.exe -r upgrade.zip update.ufw
 
-@REM Éú³ÉÅäÖÃÎÄ¼şÉı¼¶ÎÄ¼ş
+@REM ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
 ::ufw_maker.exe -chip AC800X %ADD_KEY% -output config.ufw -res bt_cfg.cfg
 
 ::IF EXIST jl_693x.bin del jl_693x.bin 
 
 
-@rem ³£ÓÃÃüÁîËµÃ÷
-@rem -format vm        //²Á³ıVM ÇøÓò
-@rem -format cfg       //²Á³ıBT CFG ÇøÓò
-@rem -format 0x3f0-2   //±íÊ¾´ÓµÚ 0x3f0 ¸ö sector ¿ªÊ¼Á¬Ğø²Á³ı 2 ¸ö sector(µÚÒ»¸ö²ÎÊıÎª16½øÖÆ»ò10½øÖÆ¶¼¿É£¬µÚ¶ş¸ö²ÎÊı±ØĞëÊÇ10½øÖÆ)
+@rem ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½
+@rem -format vm        //ï¿½ï¿½ï¿½ï¿½VM ï¿½ï¿½ï¿½ï¿½
+@rem -format cfg       //ï¿½ï¿½ï¿½ï¿½BT CFG ï¿½ï¿½ï¿½ï¿½
+@rem -format 0x3f0-2   //ï¿½ï¿½Ê¾ï¿½Óµï¿½ 0x3f0 ï¿½ï¿½ sector ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 2 ï¿½ï¿½ sector(ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª16ï¿½ï¿½ï¿½Æ»ï¿½10ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½É£ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½)
 
 :exit_point
 

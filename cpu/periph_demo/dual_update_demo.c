@@ -121,6 +121,7 @@ static int dual_ota_update_deal(u8 step, u8 *buf, u32 len);
 static void dual_ota_cpu_reset(void)
 {
     log_info("%s", __func__);
+    log_info("OTA 升级完成，即将重启");
     cpu_reset();
 }
 static void dual_ota_fail_exit(void)
@@ -145,9 +146,9 @@ static void dual_ota_fail_exit(void)
 static void dual_ota_success_reset(void)
 {
     log_info("%s", __func__);
-    sys_timeout_add(NULL, dual_ota_cpu_reset, 2000);
     /* 通知上位机升级完整，准备复位 */
     dual_ota_notify_msg_to_app(DUAL_OTA_NOTIFY_SUCCESS);
+    sys_timeout_add(NULL, dual_ota_cpu_reset, 5000);
 }
 static int dual_ota_boot_info_cb(int err)
 {

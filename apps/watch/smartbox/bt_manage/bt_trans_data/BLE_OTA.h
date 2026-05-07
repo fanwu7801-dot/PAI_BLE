@@ -4,7 +4,9 @@
 #include <stdint.h>
 
 #define OTA_REASON_MAX_LEN      256
-#define OTA_DATA_MAX_LEN        256
+/* 协议文档要求 0x2203 数据区最大 256 字节。
+ * 当前 APP 实际会发送约 467 字节明文数据区，这里只在设备端做兼容接收。 */
+#define OTA_DATA_MAX_LEN        512
 #define OTA_CMD_DISPATCHER_NUM  2
 
 typedef enum

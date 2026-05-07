@@ -18,6 +18,8 @@ ACK_CONTINUE = 0x00
 ACK_SUCCESS = 0x01
 ACK_FAIL = 0x02
 
+EXPECTED_DUAL_OTA_IMAGE_NAME = "db_update_data.bin"
+
 
 @dataclass
 class ParsedFrame:
@@ -121,6 +123,55 @@ def calc_file_crc(fw: bytes, mode: str) -> int:
     return 0
 
 
+def validate_ota_image_path(fw_path: Path, allow_non_db_file: bool = False) -> None:
+    if allow_non_db_file:
+        return
+
+    if fw_path.name.lower() != EXPECTED_DUAL_OTA_IMAGE_NAME:
+        raise ValueError(
+            "dual-bank OTA must send db_update_data.bin, "
+            f"not {fw_path.name}. "
+            "Use cpu/br28/tools/download/watch/db_update_data.bin."
+        )
+
+
+def parse_aes128_key(key_arg: str) -> bytes:
+    key_text = key_arg.strip()
+    key_path = Path(key_text)
+    if key_path.is_file():
+        key_text = key_path.read_text(encoding="ascii", errors="ignore")
+
+    hex_text = "".join(ch for ch in key_text if ch in "0123456789abcdefABCDEF")
+    if len(hex_text) < 32:
+        raise ValueError("AES key must contain at least 32 hex characters")
+    if len(hex_text) > 32:
+        hex_text = hex_text[:32]
+
+    return bytes.fromhex(hex_text)
+
+
+def decrypt_aes128_ecb_pkcs7(data: bytes, key_arg: str, strip_pkcs7: bool = True) -> bytes:
+    if len(data) == 0 or (len(data) % 16) != 0:
+        raise ValueError("AES-ECB input length must be a non-zero multiple of 16 bytes")
+
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Python package cryptography is required for AES decrypt") from exc
+
+    key = parse_aes128_key(key_arg)
+    decryptor = Cipher(algorithms.AES(key), modes.ECB()).decryptor()
+    out = decryptor.update(data) + decryptor.finalize()
+
+    if not strip_pkcs7:
+        return out
+
+    pad_len = out[-1]
+    if 1 <= pad_len <= 16 and out.endswith(bytes([pad_len]) * pad_len):
+        return out[:-pad_len]
+    return out
+
+
 def send_ota(
     ser: serial.Serial,
     fw: bytes,
@@ -192,6 +243,9 @@ def run_ota(
     pkt_len: int = 2048,
     timeout: float = 8.0,
     file_crc_mode: str = "zero",
+    allow_non_db_file: bool = False,
+    decrypt_aes_key: Optional[str] = None,
+    decrypt_keep_padding: bool = False,
     progress_cb: Optional[Callable[[int, int], None]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
 ):
@@ -208,9 +262,18 @@ def run_ota(
     if not fw:
         raise ValueError("升级文件为空")
 
+    if decrypt_aes_key:
+        fw = decrypt_aes128_ecb_pkcs7(fw, decrypt_aes_key, not decrypt_keep_padding)
+        allow_non_db_file = True
+    validate_ota_image_path(fw_path, allow_non_db_file)
+
     file_crc = calc_file_crc(fw, file_crc_mode)
     if log_cb:
         log_cb(f"[INFO] file={fw_path}")
+        if decrypt_aes_key:
+            log_cb(f"[INFO] AES-128-ECB decrypted size={len(fw)} bytes")
+        if allow_non_db_file:
+            log_cb("[WARN] non-db_update_data.bin check bypassed")
         log_cb(f"[INFO] size={len(fw)} bytes, file_crc=0x{file_crc:08X}, chunk={chunk}, pkt_len={pkt_len}")
 
     with serial.Serial(port, baud, timeout=0.05) as ser:
@@ -237,6 +300,9 @@ def main():
     parser.add_argument("--pkt-len", type=int, default=2048, help="设备聚包写入长度")
     parser.add_argument("--timeout", type=float, default=8.0, help="ACK 超时秒数")
     parser.add_argument("--file-crc-mode", choices=["zero", "crc16"], default="zero", help="START 中 file_crc 模式")
+    parser.add_argument("--allow-non-db-file", action="store_true", help="允许运行非 db_update_data.bin 文件，仅用于调试")
+    parser.add_argument("--decrypt-aes-key", help="发送前按 AES-128-ECB 解密；参数为 32 位 hex key 或 key 文件路径")
+    parser.add_argument("--decrypt-keep-padding", action="store_true", help="AES 解密后保留 PKCS7 padding")
     args = parser.parse_args()
 
     try:
@@ -248,6 +314,9 @@ def main():
             pkt_len=args.pkt_len,
             timeout=args.timeout,
             file_crc_mode=args.file_crc_mode,
+            allow_non_db_file=args.allow_non_db_file,
+            decrypt_aes_key=args.decrypt_aes_key,
+            decrypt_keep_padding=args.decrypt_keep_padding,
         )
         print("[OK] OTA 完成，设备应进入重启流程")
         return 0

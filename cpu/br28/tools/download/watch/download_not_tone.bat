@@ -26,6 +26,10 @@ copy ..\..\json.txt .
 copy ..\..\eq_cfg_hw.bin .
 copy ..\..\flash_params.bin .
 
+copy /Y isd_config.ini isd_config_full.ini
+powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Content 'isd_config_full.ini') | ForEach-Object { if ($_ -match '^TONEFAT_FILE') { '; ' + $_ } elseif ($_ -match '^TONEFAT_OPT') { 'TONEFAT_OPT = 0;' } else { $_ } } | Set-Content 'isd_config.ini' -Encoding ASCII"
+IF %ERRORLEVEL% NEQ 0 goto exit_point
+
 cd ..\..\ui_resource
 copy *.* ..\download\watch
 
@@ -54,15 +58,15 @@ set CHIPKEY=default.key
 ..\..\fat_comm.exe -pad-backup2 -force-align-fat -out new_res.bin -image-size 16 -filelist JL sidebar watch watch1 watch2 watch3 watch4 watch5 font -remove-empty -remove-bpb -mark-bad-after 0xfe0000 -key %CHIPKEY% -address 0
 IF %ERRORLEVEL% NEQ 0 goto exit_point
 
-@rem not_tone: remove tone.cfg from -res
+@rem not_tone: remove tone.cfg from -res and disable TONEFAT in isd_config.ini
 @rem keep no -format to avoid accidental erase
-..\..\isd_download.exe -tonorflash -dev br28 -boot 0x120000 -div8 -wait 300 -uboot uboot.boot -app app.bin cfg_tool.bin -res ui_upgrade p11_code.bin config.dat eq_cfg_hw.bin -flash-params flash_params.bin -uboot_compress -key %CHIPKEY%
+..\..\isd_download.exe -tonorflash -dev br28 -boot 0x120000 -div8 -wait 300 -uboot uboot.boot -app app.bin cfg_tool.bin -res ui_upgrade p11_code.bin config.dat eq_cfg_hw.bin -flash-params flash_params.bin -uboot_compress -key %CHIPKEY% -ex_api_bin user_api.bin
 IF NOT EXIST jl_isd.fw (
     @echo [ERROR] isd_download failed: jl_isd.fw not generated
     goto exit_point
 )
 
-@rem ota.bin already included via isd_config.ini [FW_ADDITIONAL]
+@rem ota.bin is already included by isd_config.ini [FW_ADDITIONAL]
 ..\..\fw_add.exe -noenc -fw jl_isd.fw -add script.ver -out jl_isd.fw
 IF %ERRORLEVEL% NEQ 0 goto exit_point
 
@@ -93,5 +97,9 @@ if exist *.view del *.view
 if exist *.json del *.json
 
 :exit_point
+if exist isd_config_full.ini (
+    copy /Y isd_config_full.ini isd_config.ini >nul
+    del isd_config_full.ini
+)
 ping /n 2 127.1>nul
 IF EXIST null del null

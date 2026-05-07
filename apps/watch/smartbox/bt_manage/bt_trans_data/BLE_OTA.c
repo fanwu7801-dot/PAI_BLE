@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "system/includes.h"
 #include "../../../../../cpu/periph_demo/dual_update_demo.h"
 
 /* 复用现有串口 OTA 通道。
@@ -9,7 +10,7 @@
 extern int dual_ota_app_data_deal(u32 msg, u8 *buf, u32 len);
 
 /* 复用现有 f7f1 加密回包链路，把 BLE OTA 结果回给 APP。 */
-extern void fill_protocol_ble_reply_f7f1(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len);
+extern void fill_protocol_ble_reply_f8f1(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len);
 
 /* 串口 OTA 固定协议号，BLE 适配层最终仍走这条底层通道。 */
 #define BLE_OTA_SERIAL_PROTOCOL_ID   0x55AA
@@ -26,6 +27,18 @@ extern void fill_protocol_ble_reply_f7f1(uint16_t protocol_id, const uint8_t *pa
 
 /* 仅用于字节序自适应时做基本合理性判断，避免明显异常值。 */
 #define BLE_OTA_MAX_FILE_SIZE        (32u * 1024u * 1024u)
+#define BLE_OTA_SERIAL_CRC_DISABLE   0u
+
+/* OTA 忙状态单元测试开关。
+ * 置 1 后，第 BLE_OTA_BUSY_TEST_TRIGGER_PACKET 个 0x2203 数据包会强制回 ota busy。
+ * 默认关闭，避免影响正式升级流程。 */
+#ifndef BLE_OTA_BUSY_UNIT_TEST
+#define BLE_OTA_BUSY_UNIT_TEST       1
+#endif
+
+#ifndef BLE_OTA_BUSY_TEST_TRIGGER_PACKET
+#define BLE_OTA_BUSY_TEST_TRIGGER_PACKET  51u
+#endif
 
 /* BLE OTA 会话上下文。
  * 这里只维护协议适配层需要的状态，不保存底层写盘状态。 */
@@ -35,13 +48,27 @@ typedef struct
     uint8_t start_pending;        /* 已下发 START，等待底层返回是否可升级 */
     uint8_t end_pending;          /* 已发送最后一个整包，等待底层通知继续后补 END */
     uint8_t awaiting_final_result;/* 已收到最后一包，等待最终成功/失败结果 */
+    uint8_t waiting_write_done;
+    uint8_t pending_final_packet;
     uint32_t file_size;           /* 目标固件总大小 */
     uint32_t file_crc32;          /* APP 下发的整包 CRC32 */
     uint32_t received_size;       /* 适配层累计收到的固件数据长度 */
     uint32_t cache_mod_len;       /* 对齐到底层大包缓存后的余数 */
+    uint16_t pending_len;
+    uint8_t pending_buf[OTA_DATA_MAX_LEN];
 } ble_ota_ctx_t;
 
 static ble_ota_ctx_t s_ble_ota_ctx;
+
+typedef enum
+{
+    BLE_OTA_APP_ACT_WRITE_CONTINUE = 1,
+    BLE_OTA_APP_ACT_SUCCESS,
+    BLE_OTA_APP_ACT_FAIL,
+} ble_ota_app_action_t;
+
+static void ble_ota_app_action_cb(int action);
+static int ble_ota_post_app_action(ble_ota_app_action_t action);
 
 /* 按大端读取 32bit。
  * APP 协议文档若定义为网络字节序，则直接走这里。 */
@@ -113,7 +140,7 @@ static void ble_ota_reply_start(uint8_t can_ota_state, const char *reason)
         payload_len += (uint16_t)reason_len;
     }
 
-    fill_protocol_ble_reply_f7f1(OTA_CMD_START, payload, payload_len);
+    fill_protocol_ble_reply_f8f1(OTA_CMD_START, payload, payload_len);
 }
 
 /* 回 0x2203 数据应答：
@@ -123,6 +150,12 @@ static void ble_ota_reply_data(uint8_t feedback, const char *reason)
     uint8_t payload[1 + OTA_REASON_MAX_LEN] = {0};
     uint16_t payload_len = 1;
 
+    if (feedback == OTA_TRANS_FINISH) {
+        printf("============================================================\n");
+        printf("========== BLE OTA SEND 0x2203 FEEDBACK=2 FINISH ==========\n");
+        printf("============================================================\n");
+    }
+
     payload[0] = feedback;
     if (reason != NULL && reason[0] != '\0') {
         size_t reason_len = strnlen(reason, OTA_REASON_MAX_LEN - 1);
@@ -130,7 +163,7 @@ static void ble_ota_reply_data(uint8_t feedback, const char *reason)
         payload_len += (uint16_t)reason_len;
     }
 
-    fill_protocol_ble_reply_f7f1(OTA_CMD_TRANSDATA, payload, payload_len);
+    fill_protocol_ble_reply_f8f1(OTA_CMD_TRANSDATA, payload, payload_len);
 }
 
 /* 给底层串口 OTA 适配层补 END 标记。
@@ -139,6 +172,133 @@ static int ble_ota_send_end_marker(void)
 {
     uint8_t end_buf[BLE_OTA_SERIAL_END_LEN] = {0xAA, 0x55};
     return dual_ota_app_data_deal(BLE_OTA_SERIAL_PROTOCOL_ID, end_buf, sizeof(end_buf));
+}
+
+static int ble_ota_feed_pending_after_write(void)
+{   
+
+
+    uint16_t pending_len = s_ble_ota_ctx.pending_len;
+    uint8_t pending_final = s_ble_ota_ctx.pending_final_packet;
+    int ret;
+
+    if (pending_len == 0) {
+        return 0;
+    }
+
+    s_ble_ota_ctx.pending_len = 0;
+    s_ble_ota_ctx.pending_final_packet = 0;
+
+    ret = dual_ota_app_data_deal(BLE_OTA_SERIAL_PROTOCOL_ID,
+                                 s_ble_ota_ctx.pending_buf, pending_len);
+    if (ret != 0) {
+        ble_ota_reply_data(OTA_TRANS_FAIL, "ota data fail");
+        ble_ota_clear_session();
+        return ret;
+    }
+
+    s_ble_ota_ctx.cache_mod_len = pending_len % DUAL_OTA_PACKET_LEN;
+    if (!pending_final) {
+        ble_ota_reply_data(OTA_TRANS_CONTINUE, "");
+        return 0;
+    }
+
+    s_ble_ota_ctx.awaiting_final_result = 1;
+    ret = ble_ota_send_end_marker();
+    if (ret != 0) {
+        ble_ota_reply_data(OTA_TRANS_FAIL, "ota end fail");
+        ble_ota_clear_session();
+    }
+    return ret;
+}
+
+static int ble_ota_queue_packet_while_busy(const uint8_t *payload, uint16_t payload_len)
+{
+    uint32_t next_received_size;
+
+    if (!s_ble_ota_ctx.waiting_write_done ||
+        s_ble_ota_ctx.pending_len > 0 ||
+        s_ble_ota_ctx.end_pending ||
+        s_ble_ota_ctx.awaiting_final_result) {
+        return -1;
+    }
+
+    if (payload_len > sizeof(s_ble_ota_ctx.pending_buf)) {
+        return -1;
+    }
+
+    next_received_size = s_ble_ota_ctx.received_size + payload_len;
+    if (next_received_size > s_ble_ota_ctx.file_size) {
+        ble_ota_reply_data(OTA_TRANS_FAIL, "size overflow");
+        ble_ota_clear_session();
+        return 0;
+    }
+
+    memcpy(s_ble_ota_ctx.pending_buf, payload, payload_len);
+    s_ble_ota_ctx.pending_len = payload_len;
+    s_ble_ota_ctx.pending_final_packet =
+        (next_received_size == s_ble_ota_ctx.file_size) ? 1 : 0;
+    s_ble_ota_ctx.received_size = next_received_size;
+    return 0;
+}
+
+static int ble_ota_post_app_action(ble_ota_app_action_t action)
+{
+    int msg[3];
+
+    msg[0] = (int)ble_ota_app_action_cb;
+    msg[1] = 1;
+    msg[2] = (int)action;
+    return os_taskq_post_type("app_core", Q_CALLBACK, 3, msg);
+}
+
+static void ble_ota_handle_write_continue(void)
+{
+    s_ble_ota_ctx.waiting_write_done = 0;
+    if (s_ble_ota_ctx.pending_len > 0) {
+        ble_ota_feed_pending_after_write();
+        return;
+    }
+    if (s_ble_ota_ctx.end_pending) {
+        int ret;
+
+        s_ble_ota_ctx.end_pending = 0;
+        ret = ble_ota_send_end_marker();
+        if (ret != 0) {
+            ble_ota_reply_data(OTA_TRANS_FAIL, "ota end fail");
+            ble_ota_clear_session();
+        }
+        return;
+    }
+    ble_ota_reply_data(OTA_TRANS_CONTINUE, "");
+}
+
+static void ble_ota_app_action_cb(int action)
+{
+    switch ((ble_ota_app_action_t)action) {
+    case BLE_OTA_APP_ACT_WRITE_CONTINUE:
+        if (s_ble_ota_ctx.waiting_write_done ||
+            s_ble_ota_ctx.end_pending ||
+            s_ble_ota_ctx.pending_len > 0) {
+            ble_ota_handle_write_continue();
+        }
+        break;
+
+    case BLE_OTA_APP_ACT_SUCCESS:
+        if (s_ble_ota_ctx.awaiting_final_result) {
+            ble_ota_reply_data(OTA_TRANS_FINISH, "");
+            ble_ota_clear_session();
+        }
+        break;
+
+    case BLE_OTA_APP_ACT_FAIL:
+        ble_ota_reply_data(OTA_TRANS_FAIL, "ota data fail");
+        ble_ota_clear_session();
+        break;
+
+    default:
+        break;
+    }
 }
 
 /* 接管 dual_ota 的通知回调。
@@ -164,29 +324,35 @@ static int ble_ota_dual_notify_cb(u32 msg, u8 *buf, u32 len, void *priv)
 
     /* 任意阶段收到 FAIL，都结束会话并回给 APP。 */
     if (msg == DUAL_OTA_NOTIFY_FAIL) {
-        ble_ota_reply_data(OTA_TRANS_FAIL, "ota data fail");
-        ble_ota_clear_session();
+        if (ble_ota_post_app_action(BLE_OTA_APP_ACT_FAIL) != 0) {
+            ble_ota_reply_data(OTA_TRANS_FAIL, "ota data fail");
+            ble_ota_clear_session();
+        }
+        return 0;
+    }
+
+    if (s_ble_ota_ctx.waiting_write_done && msg == DUAL_OTA_NOTIFY_CONTINUE) {
+        if (ble_ota_post_app_action(BLE_OTA_APP_ACT_WRITE_CONTINUE) != 0) {
+            ble_ota_handle_write_continue();
+        }
         return 0;
     }
 
     /* 如果最后一包刚好填满了底层缓存，底层会先回 CONTINUE。
      * 这里收到 CONTINUE 后，再主动补 END 包进入最终校验。 */
     if (s_ble_ota_ctx.end_pending && msg == DUAL_OTA_NOTIFY_CONTINUE) {
-        int ret;
-
-        s_ble_ota_ctx.end_pending = 0;
-        ret = ble_ota_send_end_marker();
-        if (ret != 0) {
-            ble_ota_reply_data(OTA_TRANS_FAIL, "ota end fail");
-            ble_ota_clear_session();
+        if (ble_ota_post_app_action(BLE_OTA_APP_ACT_WRITE_CONTINUE) != 0) {
+            ble_ota_handle_write_continue();
         }
         return 0;
     }
 
     /* 最终成功只在收完全部数据后才应答完成。 */
     if (s_ble_ota_ctx.awaiting_final_result && msg == DUAL_OTA_NOTIFY_SUCCESS) {
-        ble_ota_reply_data(OTA_TRANS_FINISH, "");
-        ble_ota_clear_session();
+        if (ble_ota_post_app_action(BLE_OTA_APP_ACT_SUCCESS) != 0) {
+            ble_ota_reply_data(OTA_TRANS_FINISH, "");
+            ble_ota_clear_session();
+        }
         return 0;
     }
 
@@ -205,10 +371,15 @@ void OTA_transdata_funtion(void)
 {
 }
 
+
+
+
 /* 处理 0x2202 启动 OTA。
  * 这里将 BLE payload 转换为串口 OTA START 包，再交给 dual_ota_app_data_deal()。 */
 static int ble_ota_handle_start(const uint8_t *payload, uint16_t payload_len)
-{
+{   
+
+    
     uint8_t start_buf[BLE_OTA_SERIAL_START_LEN] = {0x55, 0xAA};
     int ret;
 
@@ -216,9 +387,9 @@ static int ble_ota_handle_start(const uint8_t *payload, uint16_t payload_len)
         ble_ota_reply_start(OTA_START_NOT_ALLOWED, "invalid param");
         return -1;
     }
-
     if (s_ble_ota_ctx.session_active) {
         ble_ota_reply_start(OTA_START_NOT_ALLOWED, "ota busy");
+        ble_ota_clear_session();
         return -2;
     }
 
@@ -232,7 +403,7 @@ static int ble_ota_handle_start(const uint8_t *payload, uint16_t payload_len)
     dual_ota_set_notify_cb(ble_ota_dual_notify_cb, NULL);
 
     ble_ota_put_u32_le(&start_buf[2], s_ble_ota_ctx.file_size);
-    ble_ota_put_u32_le(&start_buf[6], s_ble_ota_ctx.file_crc32);
+    ble_ota_put_u32_le(&start_buf[6], BLE_OTA_SERIAL_CRC_DISABLE);
 
     ret = dual_ota_app_data_deal(BLE_OTA_SERIAL_PROTOCOL_ID, start_buf, sizeof(start_buf));
     if (ret != 0 && s_ble_ota_ctx.start_pending) {
@@ -244,17 +415,27 @@ static int ble_ota_handle_start(const uint8_t *payload, uint16_t payload_len)
     return ret;
 }
 
+#if BLE_OTA_BUSY_UNIT_TEST
+static uint32_t ota_busy_test_cnt = 0;
+#endif
+
 /* 处理 0x2203 数据包。
  * 数据体直接喂给 dual_ota_app_data_deal()，适配层负责做长度累计和 END 时机判断。 */
 static int ble_ota_handle_data(const uint8_t *payload, uint16_t payload_len)
 {
     uint32_t next_received_size;
     uint32_t next_cache_mod_len;
+    uint32_t cache_free_len;
     uint8_t final_packet;
     int ret;
 
-    if (payload == NULL || payload_len == 0 || payload_len > OTA_DATA_MAX_LEN) {
+    if (payload == NULL || payload_len == 0) {
         ble_ota_reply_data(OTA_TRANS_FAIL, "invalid param");
+        return -1;
+    }
+
+    if (payload_len > OTA_DATA_MAX_LEN) {
+        ble_ota_reply_data(OTA_TRANS_FAIL, "data too long");
         return -1;
     }
 
@@ -263,8 +444,25 @@ static int ble_ota_handle_data(const uint8_t *payload, uint16_t payload_len)
         return -2;
     }
 
-    if (s_ble_ota_ctx.awaiting_final_result || s_ble_ota_ctx.end_pending) {
+#if BLE_OTA_BUSY_UNIT_TEST
+    ota_busy_test_cnt++;
+    if (ota_busy_test_cnt >= BLE_OTA_BUSY_TEST_TRIGGER_PACKET) {
+        printf("[BLE_OTA_TEST] force ota busy at packet:%u\n", ota_busy_test_cnt);
         ble_ota_reply_data(OTA_TRANS_FAIL, "ota busy");
+        ble_ota_clear_session();
+        return -3;
+    }
+#endif
+
+    if (s_ble_ota_ctx.waiting_write_done &&
+        ble_ota_queue_packet_while_busy(payload, payload_len) == 0) {
+        return 0;
+    }
+
+    if (s_ble_ota_ctx.awaiting_final_result || s_ble_ota_ctx.end_pending ||
+        s_ble_ota_ctx.waiting_write_done || s_ble_ota_ctx.pending_len > 0) {
+        ble_ota_reply_data(OTA_TRANS_FAIL, "ota busy");
+        ble_ota_clear_session();
         return -3;
     }
 
@@ -280,6 +478,41 @@ static int ble_ota_handle_data(const uint8_t *payload, uint16_t payload_len)
     next_cache_mod_len = (s_ble_ota_ctx.cache_mod_len + payload_len) % DUAL_OTA_PACKET_LEN;
     final_packet = (next_received_size == s_ble_ota_ctx.file_size) ? 1 : 0;
 
+    cache_free_len = DUAL_OTA_PACKET_LEN - s_ble_ota_ctx.cache_mod_len;
+    if (payload_len > cache_free_len) {
+        uint16_t pending_len = (uint16_t)(payload_len - cache_free_len);
+
+        if (pending_len > sizeof(s_ble_ota_ctx.pending_buf)) {
+            ble_ota_reply_data(OTA_TRANS_FAIL, "ota pending overflow");
+            ble_ota_clear_session();
+            return -5;
+        }
+
+        memcpy(s_ble_ota_ctx.pending_buf, payload + cache_free_len, pending_len);
+        s_ble_ota_ctx.pending_len = pending_len;
+        s_ble_ota_ctx.pending_final_packet = final_packet;
+        s_ble_ota_ctx.waiting_write_done = 1;
+        s_ble_ota_ctx.received_size = next_received_size;
+        s_ble_ota_ctx.cache_mod_len = 0;
+
+        ret = dual_ota_app_data_deal(BLE_OTA_SERIAL_PROTOCOL_ID,
+                                     (u8 *)payload, cache_free_len);
+        if (ret != 0) {
+            ble_ota_reply_data(OTA_TRANS_FAIL, "ota data fail");
+            ble_ota_clear_session();
+            return ret;
+        }
+        return 0;
+    }
+
+    if (payload_len == cache_free_len) {
+        s_ble_ota_ctx.waiting_write_done = 1;
+        if (final_packet) {
+            s_ble_ota_ctx.awaiting_final_result = 1;
+            s_ble_ota_ctx.end_pending = 1;
+        }
+    }
+
     ret = dual_ota_app_data_deal(BLE_OTA_SERIAL_PROTOCOL_ID, (u8 *)payload, payload_len);
     if (ret != 0) {
         ble_ota_reply_data(OTA_TRANS_FAIL, "ota data fail");
@@ -290,7 +523,10 @@ static int ble_ota_handle_data(const uint8_t *payload, uint16_t payload_len)
     s_ble_ota_ctx.received_size = next_received_size;
     s_ble_ota_ctx.cache_mod_len = next_cache_mod_len;
 
-    /* 非最后一包，维持“继续发下一包”的节奏。 */
+    if (next_cache_mod_len == 0) {
+        return 0;
+    }
+
     if (!final_packet) {
         ble_ota_reply_data(OTA_TRANS_CONTINUE, "");
         return 0;
@@ -299,19 +535,12 @@ static int ble_ota_handle_data(const uint8_t *payload, uint16_t payload_len)
     /* 最后一包后不立即回 FINISH，必须等底层校验成功。 */
     s_ble_ota_ctx.awaiting_final_result = 1;
 
-    /* 最后一包未填满底层缓存，dual_ota 不会自动进入最终校验，需要补 END。 */
-    if (next_cache_mod_len != 0) {
-        ret = ble_ota_send_end_marker();
-        if (ret != 0) {
-            ble_ota_reply_data(OTA_TRANS_FAIL, "ota end fail");
-            ble_ota_clear_session();
-            return ret;
-        }
-        return 0;
+    ret = ble_ota_send_end_marker();
+    if (ret != 0) {
+        ble_ota_reply_data(OTA_TRANS_FAIL, "ota end fail");
+        ble_ota_clear_session();
+        return ret;
     }
-
-    /* 最后一包恰好填满缓存时，等底层先回 CONTINUE，再在回调里补 END。 */
-    s_ble_ota_ctx.end_pending = 1;
     return 0;
 }
 

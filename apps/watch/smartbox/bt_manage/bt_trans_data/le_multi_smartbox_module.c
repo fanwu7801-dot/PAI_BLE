@@ -64,7 +64,10 @@ static void smbox_passkey_input_cb(u32 *key, u16 conn_handle);
 /* 低功耗控制接�?- 在board_701n_demo.c中实�?*/
 extern void ble_connection_lowpower_ctrl(u8 connected);
 
-
+/**
+ *  AES和SN码的更新逻辑，在这里只做test 
+ *  直接把ASE和SN码写入到flash当中
+ */
 #ifndef BLE_AES_KEY_FLASH_UNIT_TEST
 #define BLE_AES_KEY_FLASH_UNIT_TEST  1
 #endif
@@ -109,8 +112,8 @@ static void ble_aes_key_flash_unit_test_write(void)
     /* AES key写入flash单元测试，验证syscfg读写功能是否正常，确保AES key能正确存储和读取
     */
     static const u8 unit_test_aes_key[16] = {
-        0x2B, 0x51, 0x58, 0x6C, 0xF0, 0x33, 0x5E, 0xFE,
-        0x16, 0xE8, 0x96, 0x85, 0x34, 0x5E, 0x8F, 0x49
+        0xBA, 0x92, 0xD1, 0xD5, 0xFC, 0x07, 0xB9, 0x0F,
+        0x35, 0x67, 0x16, 0x3B, 0xEE, 0x48, 0x68, 0x10
     };
     u8 readback[16] = {0};
     int w = syscfg_write(CFG_DEVICE_AES_KEY, (void *)unit_test_aes_key, sizeof(unit_test_aes_key));
@@ -2633,6 +2636,16 @@ static int att_write_callback(void *ble_hdl, hci_con_handle_t connection_handle,
         log_info("\n------write ccc:%04x,%02x\n", handle, buffer[0]);
         multi_att_set_ccc_config(connection_handle, handle, buffer[0]);
         break;
+    case ATT_CHARACTERISTIC_0000f8f1_0000_1000_8000_00805f9b34fb_01_CLIENT_CONFIGURATION_HANDLE:
+        set_ble_work_state(cur_dev_cid, BLE_ST_NOTIFY_IDICATE);
+        if (buffer == NULL || buffer_size < 1)
+        {
+            log_info("\n------write f8f1 ccc invalid size:%d\n", buffer_size);
+            break;
+        }
+        log_info("\n------write f8f1 ccc:%04x,%02x\n", handle, buffer[0]);
+        multi_att_set_ccc_config(connection_handle, handle, buffer[0]);
+        break;
 #endif // #if BLE_HID_ENABLE_FLAG
     default:
         break;
@@ -2803,7 +2816,7 @@ static void f6f1_delay_send_handler(void)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
     // �?flash 读取 SN
     u8 sn[8] = {0};
     if (get_valid_sn_hex8(sn))
@@ -4037,7 +4050,7 @@ void le_smartbox_bt_ble_init(void)
     printf("[BLE_DIAG] before bt_ble_init_do\n");
     bt_ble_init_do();
     printf("[BLE_DIAG] after bt_ble_init_do\n");
-
+    
     // 初始化RSSI检查模�?
     rssi_check_init();
     /* 1. 发送SN码和AES key给MCU，等待回复并更新 */

@@ -74,6 +74,39 @@ u8 test_aes_key[16] = {
 0x51, 0xBC, 0xB4, 0x86, 0x2D, 0x1C, 0xE9, 0x66    
 }; 
 
+static const u8 ble_ota_compat_aes_key[16] = {
+0xBA, 0x92, 0xD1, 0xD5, 0xFC, 0x07, 0xB9, 0x0F,
+0x35, 0x67, 0x16, 0x3B, 0xEE, 0x48, 0x68, 0x10
+};
+
+static u8 g_f8_reply_aes_key[16];
+static u8 g_f8_reply_aes_key_valid = 0;
+
+static void fill_protocol_set_f8_reply_key(const u8 key[16])
+{
+  if (key == NULL) {
+    return;
+  }
+  memcpy(g_f8_reply_aes_key, key, sizeof(g_f8_reply_aes_key));
+  g_f8_reply_aes_key_valid = 1;
+}
+
+static void fill_protocol_clear_f8_reply_key(void)
+{
+  memset(g_f8_reply_aes_key, 0, sizeof(g_f8_reply_aes_key));
+  g_f8_reply_aes_key_valid = 0;
+}
+
+static const u8 *fill_protocol_get_reply_aes_key(uint16_t handle, u8 out_key[16])
+{
+  if (handle == ATT_CHARACTERISTIC_0000f8f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE &&
+      g_f8_reply_aes_key_valid) {
+    memcpy(out_key, g_f8_reply_aes_key, sizeof(g_f8_reply_aes_key));
+    return out_key;
+  }
+  return fill_protocol_get_aes_key(out_key);
+}
+
 
 static int aes_key_is_valid(const u8 key[16])
 {
@@ -554,7 +587,8 @@ static void remove_vehicle_binding_instruct(uint16_t protocol_id);
 /* f7f2：车辆设置参数下发相关回调在本文件后部实现，这里先做前向声明 */
 void send_vehicle_set_param_instruct(uint16_t protocol_id, uint8_t *instruct);
 
-/* 钥匙/配置类通用回包：统一通过 f7f1 notify 给 APP，在 app_core 中完成 convert + AES */
+/* 钥匙/配置类通用回包：统一在 app_core 中完成 convert + AES 后 notify 给 APP */
+static void ble_reply_to_app_post(uint16_t handle, uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len);
 static void ble_reply_to_app_f7f1_post(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len);
 
 /* 某些模块缺失时提供的兜底声明 / stub，保证单文件可独立编译 */
@@ -762,6 +796,7 @@ static uint8_t g_ble_notify_queue_tail = 0;
 static uint8_t g_ble_notify_queue_cnt = 0;
 
 typedef struct {
+  uint16_t handle;
   uint16_t protocol_id;
   uint16_t payload_len;
   uint8_t payload[269];
@@ -798,7 +833,7 @@ static void send_data_to_ble_post(uint16_t instruct, uint16_t protocol_id);
 static void send_data_to_ble_post_cb(int req_ptr);
 
 static void ble_reply_to_app_f7f1_post_cb(int req_ptr);
-static void ble_reply_to_app_f7f1_do(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len);
+static void ble_reply_to_app_do(uint16_t handle, uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len);
 
 static void ble_notify_post(uint16_t handle, const uint8_t *data, uint16_t len,
                             uint8_t op, uint16_t instruct);
@@ -1417,7 +1452,6 @@ uint16_t convert_protocol_to_buffer(t_ble_protocl *protocol,uint8_t *buffer,uint
   }
 
   uint16_t offset = 0;
-
   // 包头 (1 字节)
   buffer[offset++] = protocol->head_prefix;
 
@@ -1553,6 +1587,107 @@ int fill_recv_protocl(uint8_t *data)
   return 1;
 }
 
+static int fill_decrypt_phone_frame_with_key(const uint8_t *data, uint16_t len,
+                                             const u8 key[16], uint8_t *out,
+                                             uint16_t *out_len)
+{
+  static AES_KEY aes_key;
+  uint8_t pad_len;
+
+  if (data == NULL || key == NULL || out == NULL || out_len == NULL || len == 0) {
+    log_info("fill_decrypt_phone_frame_with_key: invalid param");
+    return -1;
+  }
+
+  if ((*out_len) < len) {
+    log_info("fill_decrypt_phone_frame_with_key: out buffer too small");
+    return -1;
+  }
+
+  aes_set_decrypt_key(&aes_key, key, AES128_KEY_SIZE);
+
+  if ((len % AES_BLOCK_SIZE) != 0) {
+    log_info("fill_decrypt_phone_frame_with_key: invalid ecb len=%u", len);
+    return -1;
+  }
+
+  *out_len = len;
+  for (uint16_t i = 0; i < len / AES_BLOCK_SIZE; i++) {
+    aes_decrypt(&aes_key, &data[i * AES_BLOCK_SIZE], &out[i * AES_BLOCK_SIZE]);
+  }
+
+  pad_len = out[len - 1];
+  if (pad_len >= 1 && pad_len <= AES_BLOCK_SIZE && pad_len <= len) {
+    uint8_t pkcs_valid = 1;
+
+    for (uint8_t i = 0; i < pad_len; i++) {
+      if (out[len - 1 - i] != pad_len) {
+        pkcs_valid = 0;
+        break;
+      }
+    }
+
+    if (pkcs_valid) {
+      *out_len = len - pad_len;
+    }
+  }
+
+  return 0;
+}
+
+static int fill_decrypt_phone_frame(const uint8_t *data, uint16_t len,
+                                    uint8_t *out, uint16_t *out_len)
+{
+  u8 keybuf[16];
+  const u8 *key = fill_protocol_get_aes_key(keybuf);
+
+  return fill_decrypt_phone_frame_with_key(data, len, key, out, out_len);
+}
+
+static int fill_recv_f8_encrypted_frame(uint8_t *data, uint16_t len)
+{
+  static uint8_t decrypted_data[512];
+  u8 keybuf[16];
+  const u8 *runtime_key;
+  uint16_t decrypted_len;
+
+  if (data == NULL || len == 0 || (len % AES_BLOCK_SIZE) != 0) {
+    return 0;
+  }
+
+  decrypted_len = sizeof(decrypted_data);
+  if (fill_decrypt_phone_frame_with_key(data, len, ble_ota_compat_aes_key,
+                                        decrypted_data, &decrypted_len) == 0 &&
+      decrypted_len >= 13 && decrypted_data[0] == 0xFE &&
+      fill_recv_protocl(decrypted_data)) {
+    fill_protocol_set_f8_reply_key(ble_ota_compat_aes_key);
+    return 1;
+  }
+
+  runtime_key = fill_protocol_get_aes_key(keybuf);
+  decrypted_len = sizeof(decrypted_data);
+  if (fill_decrypt_phone_frame_with_key(data, len, runtime_key,
+                                        decrypted_data, &decrypted_len) == 0 &&
+      decrypted_len >= 13 && decrypted_data[0] == 0xFE &&
+      fill_recv_protocl(decrypted_data)) {
+    fill_protocol_set_f8_reply_key(runtime_key);
+    return 1;
+  }
+
+  if (memcmp(runtime_key, test_aes_key, sizeof(test_aes_key)) != 0) {
+    decrypted_len = sizeof(decrypted_data);
+    if (fill_decrypt_phone_frame_with_key(data, len, test_aes_key,
+                                          decrypted_data, &decrypted_len) == 0 &&
+        decrypted_len >= 13 && decrypted_data[0] == 0xFE &&
+        fill_recv_protocl(decrypted_data)) {
+      fill_protocol_set_f8_reply_key(test_aes_key);
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 /**
  * @brief 处理手机侧收到的数据并分发到 SOC_Phone_protocol 结构
  *
@@ -1586,7 +1721,32 @@ int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
   // S0 通道 - 设备控制/透传通道(f8f0/f8f1/f8f2)
   case ATT_CHARACTERISTIC_0000f8f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
   case ATT_CHARACTERISTIC_0000f8f2_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
-    fill_recv_protocl(data);
+  /**
+   * new add decypted mode for ota 
+   */
+    if (data == NULL) {
+      log_info("f8 data is NULL");
+      break;
+    }
+    {
+      uint8_t parsed = 0;
+
+      if (data[0] == 0xFE && fill_recv_protocl(data)) {
+        if (protocol_id == OTA_CMD_START) {
+          fill_protocol_clear_f8_reply_key();
+        }
+        fill_protocol_set_f8_reply_key(ble_ota_compat_aes_key);
+        parsed = 1;
+      }
+
+      if (!parsed) {
+        parsed = fill_recv_f8_encrypted_frame(data, len) ? 1 : 0;
+      }
+
+      if (!parsed) {
+        log_info("f8 frame parse failed, len=%u", len);
+      }
+    }
     switch (protocol_id) {
     case OTA_CMD_START:
     case OTA_CMD_TRANSDATA:
@@ -1605,46 +1765,38 @@ int fill_SOC_Phone_protocl(uint8_t *data, uint16_t len,uint16_t handle)
      * 这里改为：若首字节就 0xFE，则直接按明文解析，否则先解密后再解析
      */
     printf("join_f7f2");
+    if (data == NULL) {
+      log_info("f7f2 data is NULL");
+      break;
+    }
     if (data[0] == 0xFE) {
       if (fill_recv_protocl(data)) {
         f7f2_ID_dispose(protocol_id);
       }
       break;
     }
-    // 密文场景下需要先解密，再继续协议解析
-    /* btstack 栈空间较小，AES 相关对象放在静态区，避免栈占用过大 */
-    static AES_KEY aes_key;
-    static uint8_t decrypted_data[269]; // 解密后的协议数据缓冲突
-    uint16_t decrypted_len = sizeof(decrypted_data);
-
-    // 设置解密密钥，优先使向 MCU 通过 0x00F7 下发并保存到 syscfg 的密
     {
-      u8 keybuf[16];
-      const u8 *key = fill_protocol_get_aes_key(keybuf);
-      aes_set_decrypt_key(&aes_key, key, AES128_KEY_SIZE);
-    }
-    // 尝试 PKCS7 解密
-    int aes_ret = aes_decrypt_pkcs(&aes_key, data, len, decrypted_data, &decrypted_len);
-    if (aes_ret != 0) {
-      /* 部分手机使用“纯 AES-ECB 分组”且长度刚好16 字节对齐，PKCS7 校验会报 padd_num error
-         这种情况下退回到逐块 ECB 解密，兼容旧手机侧实现*/
-      decrypted_len = len;
-      for (uint16_t i = 0; i < len / AES_BLOCK_SIZE; i++) {
-        aes_decrypt(&aes_key, &data[i * AES_BLOCK_SIZE], &decrypted_data[i * AES_BLOCK_SIZE]);
-      }
-    }
-    printf("decrypted_data:");
-    /* btstack 栈线程里限制 hexdump 长度，避免日志过长影响时*/
-    {
+      static uint8_t decrypted_data[512]; // 解密后的协议数据缓冲区
+      uint16_t decrypted_len = sizeof(decrypted_data);
       uint16_t dump_len = decrypted_len;
+
+      if (fill_decrypt_phone_frame(data, len, decrypted_data, &decrypted_len) != 0) {
+        log_info("f7f2 decrypt failed, len=%u", len);
+        break;
+      }
+
+      printf("decrypted_data:");
+      /* btstack 栈线程里限制 hexdump 长度，避免日志过长影响时序 */
+      dump_len = decrypted_len;
       if (dump_len > 32) {
         dump_len = 32;
       }
       log_info_hexdump(decrypted_data, dump_len);
-    }
-    // 使用解密后的数据继续走协议解
-    if (fill_recv_protocl(decrypted_data)) {
-      f7f2_ID_dispose(protocol_id);
+
+      // 使用解密后的数据继续走协议解析
+      if (fill_recv_protocl(decrypted_data)) {
+        f7f2_ID_dispose(protocol_id);
+      }
     }
 
     break;
@@ -2673,8 +2825,29 @@ static void ble_notify_kick_queue(void)
 
 static void ble_reply_to_app_f7f1_post(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len)
 {
+  ble_reply_to_app_post(
+      ATT_CHARACTERISTIC_0000f7f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
+      protocol_id, payload, payload_len);
+}
+
+void fill_protocol_ble_reply_f8f1(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len)
+{
+  if (protocol_id == OTA_CMD_START || protocol_id == OTA_CMD_TRANSDATA) {
+    ble_reply_to_app_do(
+        ATT_CHARACTERISTIC_0000f8f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
+        protocol_id, payload, payload_len);
+    return;
+  }
+
+  ble_reply_to_app_post(
+      ATT_CHARACTERISTIC_0000f8f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
+      protocol_id, payload, payload_len);
+}
+
+static void ble_reply_to_app_post(uint16_t handle, uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len)
+{
   if (g_ble_reply_req_pending) {
-    log_info("ble_reply_to_app_f7f1_post: pending, drop protocol=0x%04x", protocol_id);
+    log_info("ble_reply_to_app_post: pending, drop protocol=0x%04x", protocol_id);
     return;
   }
 
@@ -2683,11 +2856,12 @@ static void ble_reply_to_app_f7f1_post(uint16_t protocol_id, const uint8_t *payl
     copy_len = 0;
   }
   if (copy_len > sizeof(g_ble_reply_req.payload)) {
-    log_info("ble_reply_to_app_f7f1_post: payload too long %d, trunc to %zu", copy_len,
+    log_info("ble_reply_to_app_post: payload too long %d, trunc to %zu", copy_len,
              sizeof(g_ble_reply_req.payload));
     copy_len = sizeof(g_ble_reply_req.payload);
   }
 
+  g_ble_reply_req.handle = handle;
   g_ble_reply_req.protocol_id = protocol_id;
   g_ble_reply_req.payload_len = copy_len;
   if (copy_len) {
@@ -2704,15 +2878,16 @@ static void ble_reply_to_app_f7f1_post(uint16_t protocol_id, const uint8_t *payl
     if (r == OS_Q_FULL || r == 0x15) {
       /* app_core 队列在高峰期可能塞满，但钥匙列表f7f1 回包仍需要尽量保证送达
        * 这里退回到当前上下文直接执行封包和 notify，由 btstack 继续调度发送*/
-      ble_reply_to_app_f7f1_do(g_ble_reply_req.protocol_id, g_ble_reply_req.payload,
-                              g_ble_reply_req.payload_len);
+      ble_reply_to_app_do(g_ble_reply_req.handle, g_ble_reply_req.protocol_id,
+                          g_ble_reply_req.payload, g_ble_reply_req.payload_len);
       g_ble_reply_req_pending = 0;
-      log_info("ble_reply_to_app_f7f1_post: app_core q full(0x%02x), fallback direct", r);
+      log_info("ble的链路 == %x",g_ble_reply_req.handle);
+      log_info("ble_reply_to_app_post: app_core q full(0x%02x), fallback direct", r);
       return;
     }
 
     g_ble_reply_req_pending = 0;
-    log_info("ble_reply_to_app_f7f1_post: post failed %x (OS_Q_FULL=%x)", r, OS_Q_FULL);
+    log_info("ble_reply_to_app_post: post failed %x (OS_Q_FULL=%x)", r, OS_Q_FULL);
   }
 }
 
@@ -2728,11 +2903,11 @@ static void ble_reply_to_app_f7f1_post_cb(int req_ptr)
     g_ble_reply_req_pending = 0;
     return;
   }
-  ble_reply_to_app_f7f1_do(req->protocol_id, req->payload, req->payload_len);
+  ble_reply_to_app_do(req->handle, req->protocol_id, req->payload, req->payload_len);
   g_ble_reply_req_pending = 0;
 }
 
-static void ble_reply_to_app_f7f1_do(uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len)
+static void ble_reply_to_app_do(uint16_t handle, uint16_t protocol_id, const uint8_t *payload, uint16_t payload_len)
 {
   fill_send_protocl(protocol_id, (uint8_t *)payload, payload_len);
 
@@ -2740,29 +2915,28 @@ static void ble_reply_to_app_f7f1_do(uint16_t protocol_id, const uint8_t *payloa
   memset(send_code, 0, sizeof(send_code));
   uint16_t send_code_len = convert_protocol_to_buffer(&send_protocl, send_code, sizeof(send_code));
   if (send_code_len == 0) {
-    log_info("ble_reply_to_app_f7f1_do: convert failed, protocol=0x%04x", protocol_id);
+    log_info("ble_reply_to_app_do: convert failed, protocol=0x%04x", protocol_id);
     return;
   }
 
-  static AES_KEY aes_key;
-  static uint8_t encrypt_buf[288];
-  u16 encrypt_len = sizeof(encrypt_buf);
-  {
-    u8 keybuf[16];
-    const u8 *key = fill_protocol_get_aes_key(keybuf);
-    aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
-  }
-  aes_encrypt_pkcs(&aes_key, send_code, send_code_len, encrypt_buf, &encrypt_len);
+  if (protocol_id != OTA_CMD_TRANSDATA) {
+    static AES_KEY aes_key;
+    static uint8_t encrypt_buf[288];
+    u16 encrypt_len = sizeof(encrypt_buf);
+    {
+      u8 keybuf[16];
+      const u8 *key = fill_protocol_get_reply_aes_key(handle, keybuf);
+      aes_set_encrypt_key(&aes_key, key, AES128_KEY_SIZE);
+    }
+    aes_encrypt_pkcs(&aes_key, send_code, send_code_len, encrypt_buf, &encrypt_len);
 
-  if (encrypt_len > sizeof(send_code)) {
-    encrypt_len = send_code_len;
-  } else {
-    memcpy(send_code, encrypt_buf, encrypt_len);
+    if (encrypt_len <= sizeof(send_code)) {
+      memcpy(send_code, encrypt_buf, encrypt_len);
+      send_code_len = encrypt_len;
+    }
   }
 
-  ble_notify_post(
-      ATT_CHARACTERISTIC_0000f7f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
-      send_code, encrypt_len, ATT_OP_NOTIFY, protocol_id);
+  ble_notify_post(handle, send_code, send_code_len, ATT_OP_NOTIFY, protocol_id);
 }
 
 static void send_data_to_ble(uint16_t instruct, uint16_t protocol_id,

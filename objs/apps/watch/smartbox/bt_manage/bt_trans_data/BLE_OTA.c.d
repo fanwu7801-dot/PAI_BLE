@@ -15,10 +15,9 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/BLE_OTA.c.o: \
   C:/JL/pi32/pi32v2-include\machine/_types.h \
   C:/JL/pi32/pi32v2-include\sys/lock.h \
   C:/JL/pi32/pi32v2-include\sys/cdefs.h \
-  C:/JL/pi32/pi32v2-include\sys/string.h \
-  apps/watch/smartbox/bt_manage/bt_trans_data/../../../../../cpu/periph_demo/dual_update_demo.h \
-  include_lib\system/includes.h include_lib/system/init.h \
-  include_lib/system/event.h include_lib/system/generic/typedef.h \
+  C:/JL/pi32/pi32v2-include\sys/string.h include_lib\system/includes.h \
+  include_lib/system/init.h include_lib/system/event.h \
+  include_lib/system/generic/typedef.h \
   include_lib/driver/cpu/br28\asm/cpu.h \
   include_lib/driver/cpu/br28\asm/br28.h \
   include_lib/driver/cpu/br28\asm/io_omap.h \
@@ -100,4 +99,5 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/BLE_OTA.c.o: \
   include_lib/driver/cpu/br28\asm/timer.h \
   include_lib/driver/cpu/br28\asm/rtc.h \
   include_lib/driver\device/rtc_calculate.h \
-  include_lib/driver\device/sdio_host_init.h
+  include_lib/driver\device/sdio_host_init.h \
+  apps/watch/smartbox/bt_manage/bt_trans_data/../../../../../cpu/periph_demo/dual_update_demo.h
