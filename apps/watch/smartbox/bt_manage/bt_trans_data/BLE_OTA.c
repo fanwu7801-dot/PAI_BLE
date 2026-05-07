@@ -33,7 +33,7 @@ extern void fill_protocol_ble_reply_f8f1(uint16_t protocol_id, const uint8_t *pa
  * 置 1 后，第 BLE_OTA_BUSY_TEST_TRIGGER_PACKET 个 0x2203 数据包会强制回 ota busy。
  * 默认关闭，避免影响正式升级流程。 */
 #ifndef BLE_OTA_BUSY_UNIT_TEST
-#define BLE_OTA_BUSY_UNIT_TEST       1
+#define BLE_OTA_BUSY_UNIT_TEST       0
 #endif
 
 #ifndef BLE_OTA_BUSY_TEST_TRIGGER_PACKET
@@ -148,19 +148,27 @@ static void ble_ota_reply_start(uint8_t can_ota_state, const char *reason)
 static void ble_ota_reply_data(uint8_t feedback, const char *reason)
 {
     uint8_t payload[1 + OTA_REASON_MAX_LEN] = {0};
-    uint16_t payload_len = 1;
+    uint16_t payload_len = 2;
 
-    if (feedback == OTA_TRANS_FINISH) {
-        printf("============================================================\n");
-        printf("========== BLE OTA SEND 0x2203 FEEDBACK=2 FINISH ==========\n");
-        printf("============================================================\n");
-    }
+
 
     payload[0] = feedback;
+    // /*重启时长字段 当前为5s*/
+    // payload[1] = 5;
     if (reason != NULL && reason[0] != '\0') {
         size_t reason_len = strnlen(reason, OTA_REASON_MAX_LEN - 1);
         memcpy(&payload[1], reason, reason_len);
         payload_len += (uint16_t)reason_len;
+    }
+
+    /* 处理 0x2203 add reset time == 5s*/
+    if (feedback == OTA_TRANS_FINISH) {
+        printf("============================================================\n");
+        printf("========== BLE OTA SEND 0x2203 FEEDBACK=2 FINISH ==========\n");
+        printf("============================================================\n");
+        payload[1] = 5; // 重启时长字段 当前为5s
+        payload_len = 2;
+        printf("当前的palyload_data %d, reason_data %d\n", payload[0], payload[1]);
     }
 
     fill_protocol_ble_reply_f8f1(OTA_CMD_TRANSDATA, payload, payload_len);
@@ -540,6 +548,9 @@ static int ble_ota_handle_data(const uint8_t *payload, uint16_t payload_len)
         ble_ota_reply_data(OTA_TRANS_FAIL, "ota end fail");
         ble_ota_clear_session();
         return ret;
+    }else
+    {
+        ble_ota_reply_data(OTA_TRANS_FINISH, "");
     }
     return 0;
 }

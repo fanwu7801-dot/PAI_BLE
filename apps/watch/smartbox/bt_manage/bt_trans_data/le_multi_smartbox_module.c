@@ -54,6 +54,7 @@ extern u32 rand32(void);
 extern u32 smbox_pairing_get_pending_passkey(u16 conn_handle);
 extern void smbox_pairing_clear_pending(void);
 static void smbox_passkey_input_cb(u32 *key, u16 conn_handle);
+static void ble_pairing_restore_default_security(void);
 
 // usart0_to_mcu.c 中的运行期缓存，通过受保护接口读取，用于在syscfg未落盘时兜底刷新广播与f6f1
 #if OTA_RX_EN
@@ -108,12 +109,12 @@ extern void ble_connection_lowpower_ctrl(u8 connected);
 
 
 static void ble_aes_key_flash_unit_test_write(void)
-{   //aes_key for test number : BA92D1D5FC07B90F3567163BEE486810 
+{   //aes_key for test number : 7C31DE2337447D92FE1F363D29BE26A8 
     /* AES key写入flash单元测试，验证syscfg读写功能是否正常，确保AES key能正确存储和读取
     */
     static const u8 unit_test_aes_key[16] = {
-        0xBA, 0x92, 0xD1, 0xD5, 0xFC, 0x07, 0xB9, 0x0F,
-        0x35, 0x67, 0x16, 0x3B, 0xEE, 0x48, 0x68, 0x10
+        0x7C, 0x31, 0xDE, 0x23, 0x37, 0x44, 0x7D, 0x92,
+        0xFE, 0x1F, 0x36, 0x3D, 0x29, 0xBE, 0x26, 0xA8  
     };
     u8 readback[16] = {0};
     int w = syscfg_write(CFG_DEVICE_AES_KEY, (void *)unit_test_aes_key, sizeof(unit_test_aes_key));
@@ -129,7 +130,7 @@ static void ble_aes_key_flash_unit_test_write(void)
     }
 
         /* 在 ble_aes_key_flash_unit_test_write 中加入 */
-    const char sn_str[] = "900102031800002"; /* 你要写入的 SN */
+    const char sn_str[] = "700102053800002"; /* 你要写入的 SN */
     uint8_t sn_hex8[8] = {0};
     if (sn_payload_to_hex8((const uint8_t *)sn_str, strlen(sn_str), sn_hex8) == 0) {
         int w_sn = syscfg_write(CFG_DEVICE_SN, sn_hex8, sizeof(sn_hex8));
@@ -1333,6 +1334,7 @@ static void cbk_sm_packet_handler(void *_hdl, uint8_t packet_type, uint16_t chan
                 u8 cid = get_cid_by_ble_hd1(_hdl);
                 log_info("pair fail/cancel -> disconnect, cid=%d\n", cid);
                 multi_ble_disconnect(NULL, cid);
+                ble_pairing_restore_default_security();
             }
 
             /* 0x0037: only send key list after pair-save success */
@@ -1344,6 +1346,7 @@ static void cbk_sm_packet_handler(void *_hdl, uint8_t packet_type, uint16_t chan
                 // send_ble_key_list(0x00FB);
                 extern void uart_send_ble_key_list(uint16_t protocol_id);
                 uart_send_ble_key_list(0x00FB);
+                ble_pairing_restore_default_security();
             }
             break;
         }
@@ -3275,6 +3278,39 @@ void ble_sm_setup_init(io_capability_t io_type, u8 auth_req, uint8_t min_key_siz
     }
 }
 
+void ble_pairing_prepare_passkey_security(void)
+{
+    if (!config_le_sm_support_enable)
+    {
+        return;
+    }
+
+    sm_set_io_capabilities(IO_CAPABILITY_DISPLAY_ONLY);
+    if (config_le_gatt_client_num)
+    {
+        sm_set_master_io_capabilities(IO_CAPABILITY_KEYBOARD_ONLY);
+    }
+    sm_set_authentication_requirements(SM_AUTHREQ_MITM_PROTECTION | SM_AUTHREQ_BONDING);
+    sm_set_encryption_key_size_range(7, 16);
+    sm_set_master_request_pair(1);
+    sm_set_request_security(1);
+    reset_PK_cb_register_ext(smbox_passkey_input_cb);
+}
+
+static void ble_pairing_restore_default_security(void)
+{
+    if (!config_le_sm_support_enable)
+    {
+        return;
+    }
+
+    sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+    sm_set_authentication_requirements(SM_AUTHREQ_NO_BONDING);
+    sm_set_encryption_key_size_range(7, 16);
+    sm_set_master_request_pair(0);
+    sm_set_request_security(0);
+}
+
 static void smbox_passkey_input_cb(u32 *key, u16 conn_handle)
 {
     u32 pending = smbox_pairing_get_pending_passkey(conn_handle);
@@ -3420,11 +3456,11 @@ void le_smartbox_ble_profile_init(void)
     /* 注册 passkey 生成回调�?x0037 生成的配对码会在配对时被协议栈使用） */
     smbox_pairing_init();
 
-    /* 强制启用需要密码的配对：DisplayOnly + MITM + Bonding
-     * 这样手机侧会弹出输入 6 位配对码的界面（�?APP 展示 fill_protocol 回包的配对码）�?
+    /* 默认不要求配对，避免 iOS 服务发现/读取 2a50 时自动弹配对。
+     * 业务主动配对时再临时切到 DisplayOnly + MITM + Bonding。
      */
-    ble_sm_setup_init(IO_CAPABILITY_DISPLAY_ONLY,
-                      SM_AUTHREQ_MITM_PROTECTION | SM_AUTHREQ_BONDING,
+    ble_sm_setup_init(IO_CAPABILITY_NO_INPUT_NO_OUTPUT,
+                      SM_AUTHREQ_NO_BONDING,
                       7,
                       SMART_TCFG_BLE_SECURITY_EN);
 
@@ -4036,6 +4072,29 @@ void le_smartbox_bt_ble_init(void)
 #endif
 
 #endif
+
+    /* 将EDR经典蓝牙名字同步为与BLE广播一致的PAIBTxxxx格式 */
+    {
+        extern BT_CONFIG bt_cfg;
+        u8 sn[8] = {0};
+        if (get_valid_sn_hex8(sn)) {
+            u64 v = 0;
+            u8 i;
+            for (i = 0; i < 8; i++) {
+                v = ((u64)v << 8) | sn[i];
+            }
+            u16 last4 = (u16)(v % 10000);
+            char new_name[10] = "PAIBT0002";
+            new_name[5] = (char)('0' + (last4 / 1000) % 10);
+            new_name[6] = (char)('0' + (last4 / 100) % 10);
+            new_name[7] = (char)('0' + (last4 / 10) % 10);
+            new_name[8] = (char)('0' + last4 % 10);
+            new_name[9] = '\0';
+            memset(bt_cfg.edr_name, 0, LOCAL_NAME_LEN);
+            memcpy(bt_cfg.edr_name, new_name, 10);
+            log_info("sync edr_name to BLE adv name: %s\n", bt_cfg.edr_name);
+        }
+    }
 
     gap_device_name = bt_get_local_name();
     gap_device_name_len = strlen(gap_device_name);

@@ -63,8 +63,4 @@ del data.bin
 del text.bin
 del psram_data_code.bin
 copy .\effect_file\music_base.bin eq_cfg_hw.bin
-
-
-
-
-call download/watch/download_insert.bat
+call download/watch/download.bat

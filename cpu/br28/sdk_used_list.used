@@ -25,11 +25,6 @@ fat_vfs_ops
 
 
 sdfile_vfs_ops
-
-
-nor_fs_vfs_ops
-nor_sdfile_vfs_ops
-fat_sdfile_fat_ops
 sbc_decoder
 
 

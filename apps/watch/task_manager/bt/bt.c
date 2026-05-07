@@ -71,6 +71,7 @@
 #include "app_main.h"
 #include "app_power_manage.h"
 #include "user_cfg.h"
+#include "syscfg_id.h"
 
 #include "asm/pwm_led.h"
 #include "asm/timer.h"
@@ -156,6 +157,57 @@ static void bt_tone_play_end_cb(void *priv, int flag)
 #define LOG_DUMP_ENABLE
 #define LOG_CLI_ENABLE
 #include "debug.h"
+
+static int bt_update_edr_name_from_sn(void)
+{
+    extern BT_CONFIG bt_cfg;
+    extern void hci_vendor_update_name(void);
+
+    u8 sn[8] = {0};
+    u64 sn_value = 0;
+    u16 last4;
+    char new_name[LOCAL_NAME_LEN] = {0};
+    int ret;
+
+    ret = syscfg_read(CFG_DEVICE_SN, sn, sizeof(sn));
+    if (ret != sizeof(sn)) {
+        log_info("update edr name skip: read sn ret=%d\n", ret);
+        return -1;
+    }
+
+    for (u8 i = 0; i < sizeof(sn); i++) {
+        if (sn[i] != 0) {
+            goto sn_valid;
+        }
+    }
+
+    log_info("update edr name skip: sn empty\n");
+    return -1;
+
+sn_valid:
+    for (u8 i = 0; i < sizeof(sn); i++) {
+        sn_value = (sn_value << 8) | sn[i];
+    }
+
+    last4 = (u16)(sn_value % 10000);
+    snprintf(new_name, sizeof(new_name), "PAIBT%04u", last4);
+
+    if (strcmp(new_name, (const char *)bt_cfg.edr_name) == 0) {
+        return 0;
+    }
+
+    ret = syscfg_write(CFG_BT_NAME, new_name, LOCAL_NAME_LEN);
+    if (ret != LOCAL_NAME_LEN) {
+        log_info("update edr name write fail: ret=%d\n", ret);
+        return -1;
+    }
+
+    memset(bt_cfg.edr_name, 0, LOCAL_NAME_LEN);
+    memcpy(bt_cfg.edr_name, new_name, strlen(new_name));
+    hci_vendor_update_name();
+    log_info("Updated edr name SN: %s\n", new_name);
+    return 0;
+}
 
 
 #if TCFG_APP_BT_EN
@@ -605,6 +657,7 @@ static int bt_connction_status_event_handler(struct bt_event *bt)
         extern void att_profile_init();
         att_profile_init();
 #endif
+        bt_update_edr_name_from_sn();
         bt_status_init_ok(bt);
         break;
     case BT_STATUS_START_CONNECTED:
@@ -1567,7 +1620,8 @@ void app_bt_task()
             switch (msg[1]) {
             case 1: // APP_MSG_USER_SN
                 log_info("处理UART SN消息\n");
-                // SN已在UART线程写入CFG_DEVICE_SN，这里仅触发广播刷新
+                // SN已在UART线程写入CFG_DEVICE_SN，这里刷新经典蓝牙名和BLE广播
+                bt_update_edr_name_from_sn();
                 extern void le_smartbox_ble_adv_restart(void);
                 le_smartbox_ble_adv_restart();
                 break;

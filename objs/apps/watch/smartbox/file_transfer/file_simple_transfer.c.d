@@ -142,4 +142,5 @@ objs/apps/watch/smartbox/file_transfer/file_simple_transfer.c.o: \
   include_lib/driver\device/rtc_calculate.h \
   include_lib/driver\device/sdio_host_init.h \
   apps/common/dev_manager\dev_manager.h \
-  apps/watch/include\message_vm_cfg.h
+  apps/watch/include\message_vm_cfg.h \
+  include_lib/system/ui_new\ui_vm/ui_vm.h

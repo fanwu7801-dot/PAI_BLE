@@ -273,6 +273,7 @@ static volatile uint8_t pairing_in_progress = 0;
 static volatile uint8_t g_uart_pair_passkey_valid = 0;
 static uint32_t g_uart_pair_passkey = 0;
 extern void sm_api_request_pairing(hci_con_handle_t con_handle);
+extern void ble_pairing_prepare_passkey_security(void);
 extern void reset_passkey_cb(u32 *key);
 extern u32 rand32(void);
 __attribute__((weak)) void reset_passkey_cb(u32 *key)
@@ -418,6 +419,7 @@ uint8_t ble_proto_ble_pair_req_Proc(uint16_t protocol_id)
   }
 
   /* 最终向协议栈发起实际配对 */
+  ble_pairing_prepare_passkey_security();
   sm_api_request_pairing(con);
 
   pairing_in_progress = 0;
