@@ -7769,8 +7769,6 @@ objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,vehicle_control_timer_start,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,putchar,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,fill_protocol_ble_on_can_send_now,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,sys_timer_del,l
--r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,sys_timeout_add,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,fill_send_protocl,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,convert_protocol_to_buffer,l
 -r=objs/apps/watch/smartbox/bt_manage/bt_trans_data/le_multi_smartbox_module.c.o,app_ble_att_send_data,l

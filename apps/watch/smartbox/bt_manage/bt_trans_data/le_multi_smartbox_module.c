@@ -258,12 +258,7 @@ static s8 cur_dev_cid; // 当前操作的多机id
 
 // 前向声明
 static int app_send_user_data_to_connection(hci_con_handle_t target_handle, u16 handle, u8 *data, u16 len, u8 handle_type);
-static void f6f1_schedule_send(hci_con_handle_t conn_handle);
-
-// f6f1 延迟发送（订阅后延迟发送一次）
-static u16 f6f1_delay_timer_id = 0;
-static hci_con_handle_t f6f1_pending_conn_handle = 0; // 待发送的连接句柄
-#define F6F1_DELAY_MS 50                              // 订阅后延�?0ms发�?
+static void f6f1_send_login_info(hci_con_handle_t conn_handle);
 
 // watch切换 app1 or app2
 u8 select_app1_or_app2 = 1;
@@ -2192,6 +2187,7 @@ static uint16_t att_read_callback(void *ble_hdl, hci_con_handle_t connection_han
         // att_set_ccc_config(handle, buffer[0]);
         // resume_all_ccc_enable(1);
         break;
+#endif // #if BLE_HID_ENABLE_FLAG
         // 添加自定义BLE特性读取支�?/ 这个是车辆的信息
     case ATT_CHARACTERISTIC_0000f5f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
         log_info("\n------read custom f5f1 value:%04x\n", handle);
@@ -2270,7 +2266,6 @@ static uint16_t att_read_callback(void *ble_hdl, hci_con_handle_t connection_han
         // }
         // att_value_len = 2;
         break;
-#endif // #if BLE_HID_ENABLE_FLAG
 
     default:
         break;
@@ -2535,6 +2530,7 @@ static int att_write_callback(void *ble_hdl, hci_con_handle_t connection_handle,
         multi_att_set_ccc_config(connection_handle, handle, buffer[0]);
         // resume_all_ccc_enable(1);
         break;
+#endif // #if BLE_HID_ENABLE_FLAG
     case ATT_CHARACTERISTIC_0000f5f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE:
         log_info("\n------write custom f5f1 value:%04x,size=%d\n", handle,
                  buffer_size);
@@ -2617,9 +2613,18 @@ static int att_write_callback(void *ble_hdl, hci_con_handle_t connection_handle,
         log_info("\n------write custom ccc:%04x,%02x\n", handle, buffer[0]);
         multi_att_set_ccc_config(connection_handle, handle, buffer[0]);
 
-        // 启动 f6f1 延迟发送（50ms后向该连接发送一次）
-        f6f1_schedule_send(connection_handle);
-        log_info("f6f1 CCC subscribed, scheduled send\n");
+        if (handle == ATT_CHARACTERISTIC_0000f6f1_0000_1000_8000_00805f9b34fb_01_CLIENT_CONFIGURATION_HANDLE)
+        {
+            if (buffer[0])
+            {
+                f6f1_send_login_info(connection_handle);
+                log_info("f6f1 CCC subscribed, login sent\n");
+            }
+            else
+            {
+                log_info("f6f1 CCC unsubscribed\n");
+            }
+        }
         break;
 
     case ATT_CHARACTERISTIC_0000f7f1_0000_1000_8000_00805f9b34fb_01_CLIENT_CONFIGURATION_HANDLE:
@@ -2649,7 +2654,6 @@ static int att_write_callback(void *ble_hdl, hci_con_handle_t connection_handle,
         log_info("\n------write f8f1 ccc:%04x,%02x\n", handle, buffer[0]);
         multi_att_set_ccc_config(connection_handle, handle, buffer[0]);
         break;
-#endif // #if BLE_HID_ENABLE_FLAG
     default:
         break;
     }
@@ -2795,15 +2799,12 @@ static int app_send_user_data_to_connection(hci_con_handle_t target_handle, u16 
     return (int)ret;
 }
 
-// ============ f6f1 延迟发送处理（订阅后延迟发送一次） ============
-static void f6f1_delay_send_handler(void)
+// ============ f6f1 登录信息发送（订阅后立即发送一次） ============
+static void f6f1_send_login_info(hci_con_handle_t conn_handle)
 {
-    // 定时器触发后自动清除
-    f6f1_delay_timer_id = 0;
-
-    if (!f6f1_pending_conn_handle)
+    if (!conn_handle)
     {
-        log_info("f6f1_delay: no pending conn\n");
+        log_info("f6f1_login: invalid conn\n");
         return;
     }
 
@@ -2839,33 +2840,31 @@ static void f6f1_delay_send_handler(void)
     uint8_t send_data[269] = {0};
     u16 actual_len = convert_protocol_to_buffer(&send_protocl, send_data, 269);
 
-    hci_con_handle_t target = f6f1_pending_conn_handle;
-    f6f1_pending_conn_handle = 0; // 清除待发送标�?
+    if (actual_len == 0)
+    {
+        log_info("f6f1_login: convert failed\n");
+        return;
+    }
+
+    if (get_cid_by_con_handle(conn_handle) == 0xff)
+    {
+        log_info("f6f1_login: conn invalid, target=0x%04x\n", conn_handle);
+        return;
+    }
 
     if (app_send_user_data_check(actual_len))
     {
         // 向订阅的那个连接发�?
         int ret = app_send_user_data_to_connection(
-            target,
+            conn_handle,
             ATT_CHARACTERISTIC_0000f6f1_0000_1000_8000_00805f9b34fb_01_VALUE_HANDLE,
             send_data, actual_len, ATT_OP_NOTIFY);
-        log_info("f6f1_delay: send to conn=0x%04x, ret=%d\n", target, ret);
+        log_info("f6f1_login: send to conn=0x%04x, ret=%d\n", conn_handle, ret);
     }
-}
-
-// 启动延迟发送（指定连接�?
-static void f6f1_schedule_send(hci_con_handle_t conn_handle)
-{
-    // 取消之前的定时器
-    if (f6f1_delay_timer_id)
+    else
     {
-        sys_timer_del(f6f1_delay_timer_id);
-        f6f1_delay_timer_id = 0;
+        log_info("f6f1_login: buffer not enough, len=%d\n", actual_len);
     }
-
-    f6f1_pending_conn_handle = conn_handle;
-    f6f1_delay_timer_id = sys_timeout_add(NULL, f6f1_delay_send_handler, F6F1_DELAY_MS);
-    log_info("f6f1 scheduled for conn=0x%04x, delay=%dms\n", conn_handle, F6F1_DELAY_MS);
 }
 
 #if TCFG_USER_BLE_CTRL_BREDR_EN
